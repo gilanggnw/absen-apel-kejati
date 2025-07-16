@@ -4,33 +4,13 @@ export default async function Page() {
       <div className="flex w-full max-w-4xl flex-col items-center justify-center gap-10 md:flex-row md:gap-20">
         {/* Left Side: Logo Placeholder */}
         <div className="flex h-80 w-80 flex-shrink-0 flex-col items-center justify-center bg-[#FFD600] text-center rounded-xl shadow-lg">
-          {/* SVG placeholder icon */}
-          <svg
-            width="64"
-            height="64"
-            viewBox="0 0 64 64"
-            fill="none"
-            className="mb-4"
-          >
-            <circle cx="32" cy="32" r="32" fill="#FFF" />
-            <text
-              x="32"
-              y="40"
-              textAnchor="middle"
-              fill="#FFD600"
-              fontSize="28"
-              fontWeight="bold"
-              fontFamily="Arial, sans-serif"
-            >
-              Logo
-            </text>
-          </svg>
-          <span className="text-xl font-semibold text-black opacity-60">Placeholder</span>
+          <span className="text-3xl font-bold text-black">Logo</span>
+          <span className="text-3xl font-bold text-black">Placeholder</span>
         </div>
 
         {/* Right Side: Login Form */}
         <div className="flex w-full max-w-xs flex-col justify-center">
-          <h1 className="mb-8 text-3xl font-black tracking-wide text-[#000000]">
+          <h1 className="mb-8 text-3xl font-black tracking-wide text-[#FFD600]">
             ABSEN APEL
           </h1>
           <form className="flex flex-col space-y-4">
