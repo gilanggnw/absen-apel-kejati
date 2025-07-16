@@ -1,67 +1,91 @@
-# Next.js Turso Starter
+# Employee Presence Web App Roadmap
 
-This repository is a starter template for building a Next.js application with Turso and Drizzle ORM.
+This roadmap outlines the steps to develop a web application for marking employee presence using a webcam. The app will allow employees to check in/out by capturing their photo via webcam and storing the data for attendance tracking.
 
-<img width="1200" alt="Next.js Starter" src="https://github.com/user-attachments/assets/b78fd54e-574b-43b9-8f8f-943d14722e64" />
+## 1. Requirements & Planning
+- Define user roles: Employee, Admin
+- List core features:
+  - Employee sign-in/sign-out with webcam photo
+  - Admin dashboard for attendance management
+  - Secure authentication (e.g., Clerk, Auth.js)
+  - Attendance history & reporting
+- Choose tech stack (Next.js, Turso/SQLite, Tailwind CSS, Clerk, etc.)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?demo-description=Simple%20Next.js%20starter%20for%20using%20SQLite%20over%20HTTP%20with%20Turso.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F2bMt29jx0XHekOO2lYlj6R%2Fc902d38ad15abf0c6d52f05bf60d54c5%2Fzi0I1GXrZoKub1NCL6i3VKe8a2UE5HMITQn1WCyquvoSZxwk&demo-title=Next.js%20Turso%20Starter&demo-url=https%3A%2F%2Fnextjs-turso-starter.vercel.app&from=templates&products=%255B%257B%2522type%2522%253A%2522integration%2522%252C%2522protocol%2522%253A%2522storage%2522%252C%2522productSlug%2522%253A%2522database%2522%252C%2522integrationSlug%2522%253A%2522tursocloud%2522%257D%255D&project-name=Next.js%20Turso%20Starter&repository-name=turso-starter&repository-url=https%3A%2F%2Fgithub.com%2Ftursodatabase%2Fnextjs-turso-starter&skippable-integrations=1)
+## 2. Database Design
+Create three main tables:
 
-## Stack
+### `users` table:
+- `id`, `email`, `password`, `role` (user/verification_admin/superadmin)
 
-- Next.js 15
-- App Router
-- Server Actions
-- Drizzle ORM
-- Turso Database
-- Todo CRUD
-- TypeScript
-- Tailwind CSS
+### `employees` table:
+- `id`, `nip`, `nama`, `jabatan`, `pangkat`
 
-## Local Development
+### `attendance` table:
+- `id`, `nip` (FK to employees), `timestamp`, `photo_url` or `photo_blob`, `status` (present/absent), `verified_by` (FK to users)
 
-1. Clone this repository
-2. Install dependencies:
+**Key Changes:**
+- **No user_id FK in employees table** - employees don't need individual login accounts
+- **Added verified_by field** in attendance table to track which admin verified the attendance
+- **Only 3 user accounts needed:**
+  - 1 communal "user" account for employee check-ins
+  - 1 "verification_admin" account for verifying attendance
+  - 1 "superadmin" account for full system management
 
-   ```bash
-   npm install
-   ```
+**Workflow:**
+1. All employees use the same communal login to mark attendance
+2. Verification admin reviews and approves attendance records
+3. Superadmin manages employees and system settings
 
-3. Set up your environment variables:
+## 3. Authentication & Authorization
+- Integrate authentication provider (e.g., Clerk)
+- Implement role-based access (employee/admin)
+- Link authenticated users to employee records
 
-   ```bash
-   cp .env.example .env
-   ```
+## 4. Frontend Development
+- Build sign-in/sign-out page with webcam capture (use `react-webcam` or similar)
+- Create dashboard for employees to view their attendance
+- Create admin dashboard to view/manage all attendance records and employee data
+- Employee management interface for admins
+- Style with Tailwind CSS
 
-   Fill in your Turso database credentials:
+## 5. Backend/API Development
+- Create API routes for:
+  - User authentication and session management
+  - Employee CRUD operations (admin only)
+  - Submitting attendance with photo
+  - Fetching attendance records (filtered by role)
+  - Admin management endpoints
+- Handle image upload (store in DB as BLOB or upload to external storage and save URL)
+- Implement proper authorization checks
 
-   ```
-   TURSO_DATABASE_URL=your_turso_database_url
-   TURSO_AUTH_TOKEN=your_turso_auth_token
-   ```
+## 6. Image Handling
+- Integrate webcam capture on frontend
+- Convert image to suitable format (base64 or blob)
+- Store image in database or upload to storage (e.g., S3, Cloudinary)
 
-4. Set up your database:
+## 7. Testing
+- Unit and integration tests for API and UI
+- Manual testing of webcam and image upload
+- Test user roles and permissions
 
-   ```bash
-   npm run db:generate
-   npm run db:push
-   ```
+## 8. Deployment
+- Deploy frontend and backend (Vercel, Netlify, etc.)
+- Set up environment variables and production database
+- Configure proper CORS and security headers
 
-5. Start the development server:
-   ```bash
-   npm run dev
-   ```
+## 9. Documentation & Training
+- Write user/admin guides
+- Document API endpoints
+- Create employee onboarding documentation
 
-## Database Management
+## 10. Future Enhancements
+- Add face recognition for verification
+- Mobile app support
+- Analytics and reporting features
+- Shift management and scheduling
+- Overtime calculations
+- Integration with payroll systems
 
-This project uses Drizzle ORM for database operations. Here are the available commands:
+---
 
-- `npm run db:generate` - Generate migration files from schema changes
-- `npm run db:push` - Push schema changes directly to the database (use with caution)
-- `npm run db:migrate` - Run migrations against the database
-- `npm run db:studio` - Open the Drizzle Studio for database management
-
-## Need Help?
-
-1. Open an issue on GitHub
-2. Submit a Pull Request to improve this starter
-3. [Join us on Discord](https://tur.so/discord)
+**Tip:** Start with a minimal prototype (MVP) and iterate based
