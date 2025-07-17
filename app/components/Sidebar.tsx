@@ -33,6 +33,24 @@ const Sidebar = () => {
                             </span>
                         </Link>
                     </li>
+                    <li className="mt-2">
+                        <Link href="/fatabase" passHref>
+                            <span
+                                className={`${linkClasses} ${pathname === '/database' ? activeLinkClasses : inactiveLinkClasses}`}
+                            >
+                                Database
+                            </span>
+                        </Link>
+                    </li>
+                    <li className="mt-2">
+                        <Link href="/rekap-pegawai" passHref>
+                            <span
+                                className={`${linkClasses} ${pathname === '/rekap-pegawai' ? activeLinkClasses : inactiveLinkClasses}`}
+                            >
+                                Rekap Pegawai
+                            </span>
+                        </Link>
+                    </li>
                 </ul>
             </nav>
         </aside>
