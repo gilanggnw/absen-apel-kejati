@@ -142,13 +142,16 @@ export default function FotoPage() {
       {showDialog && (
         <div className="fixed inset-0 flex items-center justify-center bg-[rgba(0,0,0,0.75)] z-50">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <h2 className="text-2xl font-bold mb-4 text-black">Data berhasil disimpan</h2>
-            <button
-              onClick={() => setShowDialog(false)}
-              className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              OK
-            </button>
+            <h2 className="text-2xl font-bold mb-4 text-black">Data berhasil disimpan</h2>            
+              <button
+                onClick={() => {
+                  setShowDialog(false)
+                  window.location.href = '/absen';
+                }}
+                className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                OK
+              </button>
           </div>
         </div>
       )}
