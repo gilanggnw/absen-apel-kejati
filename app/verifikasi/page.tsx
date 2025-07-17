@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 
@@ -25,15 +27,22 @@ const VerifikasiPage = () => {
             <label htmlFor="date-picker" className="text-lg font-medium text-gray-700 mr-4">
               Pilih Tanggal:
             </label>
-            <select
-              id="date-picker"
-              className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
-            >
-              <option>11 Juli 2025</option>
-              {/* You can add more dates here */}
-              <option>12 Juli 2025</option>
-              <option>13 Juli 2025</option>
-            </select>
+            {/* Pop-up Calendar Date Picker with Arrow and Gray Outline */}
+            <div className="relative w-48">
+              <DatePicker
+                id="date-picker"
+                selected={useState(new Date())[0]}
+                onChange={() => {}}
+                dateFormat="dd MMMM yyyy"
+                className="block w-full rounded-md border border-gray-400 shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50 p-2 pr-10"
+              />
+              {/* Arrow icon */}
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* Stats and Report Button */}
