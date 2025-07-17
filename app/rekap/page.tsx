@@ -1,70 +1,8 @@
 'use client';
 
 import React from 'react';
-
-// --- Helper Components ---
-
-// Icon for the user profile
-const UserIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className="h-8 w-8 text-gray-600"
-    viewBox="0 0 20 20"
-    fill="currentColor"
-  >
-    <path
-      fillRule="evenodd"
-      d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-      clipRule="evenodd"
-    />
-  </svg>
-);
-
-interface HeaderProps {
-  username: string;
-  logoContent: React.ReactNode;
-}
-
-// Header Component
-const Header = ({ username, logoContent }: HeaderProps) => {
-  return (
-    <header className="bg-white shadow-md p-4 flex justify-between items-center">
-      <div>{logoContent}</div>
-      <div className="flex items-center space-x-2">
-        <span className="text-gray-700">Welcome {username}</span>
-        <UserIcon />
-      </div>
-    </header>
-  );
-};
-
-// Sidebar Component
-const Sidebar = () => {
-  return (
-    <aside className="w-64 bg-gray-100 p-4 border-r border-gray-200">
-      <nav>
-        <ul>
-          <li>
-            <a
-              href="#"
-              className="block py-3 px-4 text-lg font-semibold bg-white rounded-lg shadow"
-            >
-              Rekap
-            </a>
-          </li>
-          <li className="mt-2">
-            <a
-              href="#"
-              className="block py-3 px-4 text-lg text-gray-700 hover:bg-gray-200 rounded-lg"
-            >
-              Verifikasi
-            </a>
-          </li>
-        </ul>
-      </nav>
-    </aside>
-  );
-};
+import Header from '../components/Header';
+import Sidebar from '../components/Sidebar';
 
 // Main Page Component
 const AbsenApelPage = () => {

@@ -2,41 +2,43 @@
 
 import React from 'react';
 
-// SVG Icon for the User Profile
+// SVG Icon for the User Profile - Updated to be a filled icon
 const UserIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-6 w-6 text-gray-600"
+    className="h-8 w-8 text-gray-800"
+    viewBox="0 0 20 20"
+    fill="currentColor"
   >
-    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
+    <path
+      fillRule="evenodd"
+      d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+      clipRule="evenodd"
+    />
   </svg>
 );
 
+// Interface for Header props
 interface HeaderProps {
   username?: string;
   logoContent?: React.ReactNode;
 }
 
-export default function Header({ username = "userptsp", logoContent }: HeaderProps) {
+// The Header component
+const Header = ({ username = "adminverif (Administrator)", logoContent }: HeaderProps) => {
   return (
-    <header className="w-full bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <header className="w-full bg-gray-200">
+      <div className="max-w-full mx-auto px-6 lg:px-8">
+        <div className="flex justify-between items-center h-20">
+          {/* Logo/Title on the left */}
           <div className="flex-shrink-0">
-            {logoContent && logoContent}
+            {logoContent ? logoContent : <h1 className="text-2xl font-bold text-black">Absen Apel</h1>}
           </div>
+
+          {/* Welcome message and User Icon on the right */}
           <div className="flex items-center space-x-4">
-            <span className="text-gray-600">Welcome {username}</span>
-            <div className="p-2 rounded-full bg-gray-200">
+            <span className="text-gray-800 font-medium">Welcome {username}</span>
+            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-gray-300">
               <UserIcon />
             </div>
           </div>
@@ -44,4 +46,6 @@ export default function Header({ username = "userptsp", logoContent }: HeaderPro
       </div>
     </header>
   );
-}
+};
+
+export default Header;
