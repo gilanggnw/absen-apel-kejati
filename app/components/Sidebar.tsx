@@ -34,7 +34,7 @@ const Sidebar = () => {
                         </Link>
                     </li>
                     <li className="mt-2">
-                        <Link href="/fatabase" passHref>
+                        <Link href="/database" passHref>
                             <span
                                 className={`${linkClasses} ${pathname === '/database' ? activeLinkClasses : inactiveLinkClasses}`}
                             >
