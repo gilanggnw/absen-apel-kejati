@@ -57,13 +57,82 @@ const AbsenApelPage = () => {
             </button>
           </div>
 
-          {/* Table Placeholder */}
-          <div className="bg-gray-200 rounded-lg p-4 shadow-inner flex-1 h-[50vh] flex items-center justify-center">
-            <div className="text-center text-gray-500 text-xl">
-              <p>tabel rekapan</p>
-              <p>based on</p>
-              <p>jam dateng</p>
-            </div>
+          {/* Table */}
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    No
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nama Lengkap
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    NIP
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Timestamp
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status Waktu
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status Verifikasi
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">1</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Ahmad Susanto</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">196801011990031002</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">07:02:23</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      Tepat Waktu
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full  bg-green-100 text-green-800">
+                      Terverifikasi
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Bambang Prasetyo</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">198003201998031003</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">07:28:12</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      Tepat Waktu
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      Terverifikasi
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">3</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Siti Nurhaliza</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">197205152000032001</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">08:00:40</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                      Terlambat
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                      Menunggu
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </main>
       </div>
