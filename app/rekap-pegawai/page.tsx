@@ -3,6 +3,9 @@
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import Image from 'next/image';
+import { useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // --- Page Specific Components ---
 
@@ -13,7 +16,6 @@ interface Employee {
     dob: string;
     imageUrl: string;
 }
-
 
 const EmployeeInfo = ({ employee }: { employee: Employee }) => (
     <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-lg border mb-8 gap-6">
@@ -78,6 +80,7 @@ const AttendanceTable = ({ records }: { records: AttendanceRecord[] }) => (
 
 
 // --- Main Page Component ---
+
 const RekapPegawaiPage = () => {
     // Mock data based on the image
     const employeeData = {
@@ -93,6 +96,9 @@ const RekapPegawaiPage = () => {
         { date: '21 Juli 2025', status: 'Hadir (telat)', photoAndTime: 'foto (07:50)' },
     ];
 
+    // State for month/year picker
+    const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date(2025, 6)); // July 2025
+
     return (
         <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
             <Header
@@ -105,25 +111,20 @@ const RekapPegawaiPage = () => {
                     <h1 className="text-2xl font-bold mb-6">Rekap Pegawai</h1>
                     {/* Filters */}
                     <div className="flex flex-wrap gap-6 mb-8">
-                        <div className="flex items-center">
-                            <label htmlFor="month-picker" className="text-lg font-medium text-gray-700 mr-4">
-                                Pilih Bulan:
+                        <div className="flex items-center bg-white border-1 border-black-400 rounded-xl shadow-md px-6 py-4">
+                            <label className="text-lg font-medium text-gray-700 mr-4">
+                                Pilih Bulan & Tahun:
                             </label>
-                            <select id="month-picker" className="block w-40 rounded-md border-gray-300 shadow-sm p-2">
-                                <option>Juli</option>
-                                <option>Agustus</option>
-                                <option>September</option>
-                            </select>
-                        </div>
-                        <div className="flex items-center">
-                            <label htmlFor="year-picker" className="text-lg font-medium text-gray-700 mr-4">
-                                Pilih Tahun:
-                            </label>
-                            <select id="year-picker" className="block w-32 rounded-md border-gray-300 shadow-sm p-2">
-                                <option>2025</option>
-                                <option>2024</option>
-                                <option>2023</option>
-                            </select>
+                            <DatePicker
+                                selected={selectedMonth}
+                                onChange={(date) => setSelectedMonth(date)}
+                                dateFormat="MM/yyyy"
+                                showMonthYearPicker
+                                showFullMonthYearPicker
+                                className="block w-44 rounded-md border-gray-300 shadow-sm p-2 font-semibold text-gray-800 focus:ring-yellow-400 focus:border-yellow-400 cursor-pointer bg-gray-50 hover:bg-yellow-50 transition"
+                                calendarClassName="react-datepicker-month-year-dropdown"
+                                popperPlacement="bottom"
+                            />
                         </div>
                     </div>
 
