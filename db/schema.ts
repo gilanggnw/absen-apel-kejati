@@ -1,4 +1,5 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { not } from "drizzle-orm";
+import { sqliteTable, text, integer, blob } from "drizzle-orm/sqlite-core";
 
 export const usersTable = sqliteTable("users", {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -11,15 +12,16 @@ export const employeesTable = sqliteTable("employees", {
   id: integer().primaryKey({ autoIncrement: true }),
   nip: text().notNull().unique(),
   nama: text().notNull(),
+  foto: blob(),
   jabatan: text(),
-  pangkat: text(),
+  pangkat: text()
 });
 
 export const attendanceTable = sqliteTable("attendance", {
   id: integer().primaryKey({ autoIncrement: true }),
   nip: integer().references(() => employeesTable.id),
   timestamp: integer().notNull(),
-  photo_url: text(),
+  photo: blob(),
   status: text().notNull(),
   verified_by: integer().references(() => usersTable.id),
 });

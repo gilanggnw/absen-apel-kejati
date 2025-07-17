@@ -15,6 +15,13 @@
       "when": 1752684293488,
       "tag": "0001_smiling_prowler",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1752733847260,
+      "tag": "0002_open_landau",
+      "breakpoints": true
     }
   ]
 }
