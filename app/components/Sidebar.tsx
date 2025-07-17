@@ -7,7 +7,8 @@ const Sidebar = () => {
     const pathname = usePathname();
 
     const linkClasses = `block w-full text-left py-3 px-4 text-lg font-semibold rounded-lg transition-colors duration-200`;
-    const activeLinkClasses = 'bg-white shadow-md text-black';
+    // Use #FFD600 for the highlight background and #222 for text for contrast
+    const activeLinkClasses = 'bg-[#FFD600] text-[#222] shadow-md';
     const inactiveLinkClasses = 'text-gray-700 hover:bg-gray-200';
 
     return (
