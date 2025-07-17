@@ -1,4 +1,17 @@
-export default async function Page() {
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { FormEvent } from 'react';
+
+export default function Page() {
+  const router = useRouter();
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    // You can add authentication logic here if needed
+    router.push('/absen');
+  };
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-white p-8">
       <div className="flex w-full max-w-4xl flex-col items-center justify-center gap-10 md:flex-row md:gap-20">
@@ -10,22 +23,22 @@ export default async function Page() {
 
         {/* Right Side: Login Form */}
         <div className="flex w-full max-w-xs flex-col justify-center">
-          <h1 className="mb-8 text-3xl font-black tracking-wide text-[#FFD600]">
+          <h1 className="mb-8 text-3xl font-black tracking-wide text-[#000000]">
             ABSEN APEL
           </h1>
-          <form className="flex flex-col space-y-4">
+          <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
             <input
               type="text"
               name="username"
               placeholder="Username"
-              className="rounded-lg bg-[#FFD600]/20 px-4 py-3 text-base text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFD600]"
+              className="rounded-lg bg-[#000000]/20 px-4 py-3 text-base text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFD600]"
               aria-label="Username"
             />
             <input
               type="password"
               name="password"
               placeholder="Password"
-              className="rounded-lg bg-[#FFD600]/20 px-4 py-3 text-base text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFD600]"
+              className="rounded-lg bg-[#000000]/20 px-4 py-3 text-base text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFD600]"
               aria-label="Password"
             />
             <button

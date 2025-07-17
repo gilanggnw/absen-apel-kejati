@@ -8,8 +8,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js Turso Starter",
-  description: "Get started with Next.js and Turso",
+  title: "Absen Apel Kejati Jatim",
+  description: "Kejaksaan Tinggi Jawa Timur - Aplikasi Absen Apel",
 };
 
 export default function RootLayout({
