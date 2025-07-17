@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Header from '../components/Header';
+import { useRouter } from 'next/navigation';
 
 // SVG Icon for the Search Button
 const SearchIcon = () => (
@@ -25,11 +26,12 @@ const SearchIcon = () => (
 // Main App Component
 export default function Page() {
   // State to hold the search input value
+    const router = useRouter();
   const [searchValue, setSearchValue] = useState('');
 
   const handleSearch = () => {
     // Handle the search logic here, e.g., API call
-    console.log(`Searching for: ${searchValue}`);
+    router.push('/absen/foto');
     // You could show an alert or a message box here, but for this example, we'll log to console.
   };
 
