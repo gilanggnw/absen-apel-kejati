@@ -14,11 +14,14 @@
   },
   "dependencies": {
     "@libsql/client": "^0.15.8",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/react-datepicker": "^6.2.0",
     "@vercel/speed-insights": "^1.2.0",
+    "better-sqlite3": "^12.2.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.0",
     "drizzle-kit": "^0.31.1",
-    "drizzle-orm": "^0.44.2",
+    "drizzle-orm": "^0.44.3",
     "next": "15.3.2",
     "react": "^19.0.0",
     "react-confetti": "^6.4.0",
@@ -34,6 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
     "tailwindcss": "^4",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   }
 }
