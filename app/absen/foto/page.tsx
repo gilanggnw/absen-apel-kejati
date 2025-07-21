@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 
 // Main App Component for the Photo Attendance Page
 export default function FotoPage() {
@@ -82,7 +83,7 @@ export default function FotoPage() {
     return () => {
       stopCamera();
     };
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, [startCamera, stopCamera]); // Empty dependency array ensures this runs only once on mount
 
 
   return (
@@ -109,9 +110,16 @@ export default function FotoPage() {
             &larr; Kembali ke Absen
           </button>
           {/* Display Area for Camera or Captured Photo */}
+          {/* Display Area for Camera or Captured Photo */}
           <div className="bg-gray-800 rounded-lg shadow-2xl w-full aspect-video mb-6 flex items-center justify-center overflow-hidden">
             {capturedImage ? (
-              <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
+              <Image
+                src={capturedImage}
+                alt="Captured"
+                width={1280}
+                height={720}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
             )}

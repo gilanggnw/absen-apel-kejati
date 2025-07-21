@@ -229,7 +229,7 @@ const DatabasePage = () => {
               />
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'Aktif' | 'Tidak Aktif')}
                 className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-black opacity-80"
               >
                 <option value="all" className="text-black opacity-80">Semua Status</option>
