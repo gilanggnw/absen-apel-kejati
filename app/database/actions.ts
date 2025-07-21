@@ -124,6 +124,20 @@ export async function deleteEmployeePhoto(id: number): Promise<boolean> {
   }
 }
 
+export async function deleteEmployee(id: number): Promise<boolean> {
+  try {
+    console.log('🗑️ Deleting employee with ID:', id);
+    
+    await db.delete(employeesTable).where(eq(employeesTable.id, id));
+    
+    console.log('✅ Employee deleted successfully!');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to delete employee:', error);
+    return false;
+  }
+}
+
 export async function addEmployee(data: {
   nama: string;
   nip: string;
