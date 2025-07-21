@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { getEmployees, type DatabaseEmployee } from './actions';
+import { getEmployees, addEmployee, type DatabaseEmployee } from './actions';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
+import Image from 'next/image';
 
 // --- Helper Components & Icons ---
 
@@ -35,7 +36,7 @@ const DatabasePage = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 25;
+  const pageSize = 10;
 
   // Fetch employees from the database on mount
   useEffect(() => {
@@ -82,6 +83,9 @@ const DatabasePage = () => {
     pangkat: '',
     status: 'Aktif',
   });
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Memoized filtering logic to avoid re-calculating on every render
   const filteredEmployees = useMemo(() => {
@@ -121,20 +125,92 @@ const DatabasePage = () => {
   const handleAddDialogClose = () => {
     setShowAddDialog(false);
     setFormData({ nip: '', nama: '', jabatan: '', pangkat: '', status: 'Aktif' });
+    setSelectedPhoto(null);
+    setPhotoPreview(null);
+    setIsSubmitting(false);
   };
 
-  const handleAddDialogSubmit = (e: React.FormEvent) => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedPhoto(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPhotoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+    const handleAddDialogSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newId = employees.length > 0 ? Math.max(...employees.map(e => e.id)) + 1 : 1;
-    const newEmployee: Employee = {
-      id: newId,
-      nama: formData.nama,
-      nip: formData.nip,
-      jabatan: formData.jabatan,
-      status: formData.status as 'Aktif' | 'Tidak Aktif',
-    };
-    setEmployees([...employees, newEmployee]);
-    handleAddDialogClose();
+    setIsSubmitting(true);
+
+    console.log('🔄 Form submission started');
+    console.log('📝 Form data:', formData);
+    console.log('📷 Selected photo:', selectedPhoto ? `${selectedPhoto.name} (${selectedPhoto.size} bytes)` : 'None');
+
+    try {
+      let photoBase64 = undefined;
+      
+      if (selectedPhoto) {
+        console.log('🔄 Converting photo to base64...');
+        const reader = new FileReader();
+        photoBase64 = await new Promise<string>((resolve) => {
+          reader.onload = () => {
+            const result = reader.result as string;
+            console.log('✅ Photo converted to base64, length:', result.length);
+            resolve(result);
+          };
+          reader.readAsDataURL(selectedPhoto);
+        });
+      }
+
+      console.log('🚀 Calling addEmployee server action...');
+      const success = await addEmployee({
+        nama: formData.nama,
+        nip: formData.nip,
+        jabatan: formData.jabatan,
+        pangkat: formData.pangkat,
+        foto: photoBase64,
+      });
+
+      console.log('📡 Server action result:', success);
+
+      if (success) {
+        console.log('✅ Employee added successfully, refreshing data...');
+        // Refresh the employee list
+        const updatedEmployees = await getEmployees();
+        console.log('📊 Updated employee count:', updatedEmployees.length);
+        
+        setEmployees(
+          updatedEmployees.map((item: DatabaseEmployee) => ({
+            id: item.id,
+            nama: item.nama,
+            nip: item.nip,
+            jabatan: item.jabatan ?? '',
+            status: 'Aktif', // or set based on your logic
+          }))
+        );
+        
+        // Reset form and close dialog
+        setFormData({ nip: '', nama: '', jabatan: '', pangkat: '', status: 'Aktif' });
+        setSelectedPhoto(null);
+        setPhotoPreview(null);
+        setShowAddDialog(false);
+        
+        console.log('🎉 Form reset and dialog closed');
+      } else {
+        console.error('❌ Server returned failure');
+        alert('Gagal menambahkan pegawai. Silakan coba lagi.');
+      }
+    } catch (error) {
+      console.error('❌ Client-side error:', error);
+      alert('Terjadi kesalahan saat menambahkan pegawai.');
+    } finally {
+      setIsSubmitting(false);
+      console.log('🏁 Form submission completed');
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -162,21 +238,22 @@ const DatabasePage = () => {
     const lastPageIndex = totalPages;
     
     if (!shouldShowLeftDots && shouldShowRightDots) {
-        let leftItemCount = 3 + 2 * siblingCount;
-        let leftRange = Array.from({ length: leftItemCount }, (_, i) => i + 1);
+        const leftItemCount = 3 + 2 * siblingCount;
+        const leftRange = Array.from({ length: leftItemCount }, (_, i) => i + 1);
         return [...leftRange, '...', totalPages];
     }
 
     if (shouldShowLeftDots && !shouldShowRightDots) {
-        let rightItemCount = 3 + 2 * siblingCount;
-        let rightRange = Array.from({ length: rightItemCount }, (_, i) => totalPages - rightItemCount + i + 1);
+        const rightItemCount = 3 + 2 * siblingCount;
+        const rightRange = Array.from({ length: rightItemCount }, (_, i) => totalPages - rightItemCount + i + 1);
         return [firstPageIndex, '...', ...rightRange];
     }
     
     if (shouldShowLeftDots && shouldShowRightDots) {
-        let middleRange = Array.from({ length: rightSiblingIndex - leftSiblingIndex + 1 }, (_, i) => leftSiblingIndex + i);
+        const middleRange = Array.from({ length: rightSiblingIndex - leftSiblingIndex + 1 }, (_, i) => leftSiblingIndex + i);
         return [firstPageIndex, '...', ...middleRange, '...', lastPageIndex];
     }
+
     return []; // Should not happen
   }, [totalPages, currentPage]);
 
@@ -202,7 +279,7 @@ const DatabasePage = () => {
             {/* Dialog for tambah pegawai */}
             {showAddDialog && (
               <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0, 0, 0, 0.35)' }}>
-                <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md text-left relative">
+                <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md text-left relative max-h-[90vh] overflow-y-auto">
                   <h2 className="text-2xl font-bold mb-6 text-black">Tambah Pegawai Baru</h2>
                   <form onSubmit={handleAddDialogSubmit} className="space-y-4">
                     <div>
@@ -214,6 +291,7 @@ const DatabasePage = () => {
                         onChange={e => setFormData(f => ({ ...f, nip: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder:text-black placeholder:opacity-70"
                         placeholder="Masukkan NIP"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -225,6 +303,7 @@ const DatabasePage = () => {
                         onChange={e => setFormData(f => ({ ...f, nama: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder:text-black placeholder:opacity-70"
                         placeholder="Masukkan Nama"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -235,6 +314,7 @@ const DatabasePage = () => {
                         onChange={e => setFormData(f => ({ ...f, jabatan: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder:text-black placeholder:opacity-70"
                         placeholder="Masukkan Jabatan"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -245,7 +325,30 @@ const DatabasePage = () => {
                         onChange={e => setFormData(f => ({ ...f, pangkat: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder:text-black placeholder:opacity-70"
                         placeholder="Masukkan Pangkat"
+                        disabled={isSubmitting}
                       />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-1 text-gray-700">Foto Pegawai</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        disabled={isSubmitting}
+                      />
+                      {photoPreview && (
+                        <div className="mt-2">
+                          <Image
+                            src={photoPreview}
+                            alt="Preview"
+                            width={96}
+                            height={96}
+                            className="w-24 h-24 object-cover rounded-lg border border-gray-300"
+                            unoptimized
+                          />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold mb-1 text-gray-700">Status</label>
@@ -253,6 +356,7 @@ const DatabasePage = () => {
                         value={formData.status}
                         onChange={e => setFormData(f => ({ ...f, status: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-black opacity-80"
+                        disabled={isSubmitting}
                       >
                         <option value="Aktif" className="text-black opacity-80">Aktif</option>
                         <option value="Tidak Aktif" className="text-black opacity-80">Tidak Aktif</option>
@@ -263,14 +367,16 @@ const DatabasePage = () => {
                         type="button"
                         onClick={handleAddDialogClose}
                         className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                        disabled={isSubmitting}
                       >
                         Batal
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isSubmitting}
                       >
-                        Simpan
+                        {isSubmitting ? 'Menyimpan...' : 'Simpan'}
                       </button>
                     </div>
                   </form>
