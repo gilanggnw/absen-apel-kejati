@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { getEmployees, type DatabaseEmployee } from './actions';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -17,9 +18,7 @@ const ThreeDotIcon = () => (
   </svg>
 );
 
-// --- Mock Data ---
-
-// Type definition for an employee
+// --- Type Definition ---
 type Employee = {
   id: number;
   nama: string;
@@ -28,23 +27,29 @@ type Employee = {
   status: 'Aktif' | 'Tidak Aktif';
 };
 
-// Sample employee data
-const mockEmployees: Employee[] = [
-  { id: 1, nama: 'Budi Santoso', nip: '198503152010011001', jabatan: 'Kepala Bagian', status: 'Aktif' },
-  { id: 2, nama: 'Citra Lestari', nip: '199008202015032002', jabatan: 'Staf Administrasi', status: 'Aktif' },
-  { id: 3, nama: 'Agus Wijaya', nip: '198812012014021003', jabatan: 'Analis Keuangan', status: 'Aktif' },
-  { id: 4, nama: 'Dewi Anggraini', nip: '199205102018012005', jabatan: 'Staf IT', status: 'Tidak Aktif' },
-  { id: 5, nama: 'Eko Prasetyo', nip: '198707252012061004', jabatan: 'Staf Pemasaran', status: 'Aktif' },
-  { id: 6, nama: 'Fitriani', nip: '199501302020032007', jabatan: 'Staf HRD', status: 'Aktif' },
-];
-
 
 // --- Main Database Page Component ---
 
 const DatabasePage = () => {
   const router = useRouter();
   // State for the list of employees
-  const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  // Fetch employees from the database on mount
+  useEffect(() => {
+    async function fetchData() {
+      const data = await getEmployees();
+      setEmployees(
+        data.map((item: DatabaseEmployee) => ({
+          id: item.id,
+          nama: item.nama,
+          nip: item.nip,
+          jabatan: item.jabatan ?? '',
+          status: 'Aktif', // or set based on your logic
+        }))
+      );
+    }
+    fetchData();
+  }, []);
   // State for the search filter
   const [searchTerm, setSearchTerm] = useState('');
   // State for the status filter
