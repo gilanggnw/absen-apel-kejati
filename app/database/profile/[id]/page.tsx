@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import NextImage from 'next/image';
-import { getEmployeeById, type DatabaseEmployee } from '../../actions';
+import { getEmployeeById } from '../../actions';
 import Sidebar from '../../../components/Sidebar';
 
 // --- Mock Components for Preview ---
@@ -151,6 +151,7 @@ const ProfilePage = () => {
                             jabatan: data.jabatan,
                             pangkat: data.pangkat,
                             status: 'Aktif', // Default status, you can add this to your schema later
+                            imageUrl: data.foto || undefined,
                         });
                     }
                 } catch (error) {
@@ -243,7 +244,7 @@ const ProfilePage = () => {
                             ← Kembali ke Database
                         </button>
                         <button
-                            onClick={() => alert('Edit Data clicked!')}
+                            onClick={() => router.push(`/database/profile/${employeeId}/edit`)}
                             className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
                         >
                             Edit Data

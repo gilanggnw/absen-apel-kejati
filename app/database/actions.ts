@@ -43,6 +43,87 @@ export async function getEmployeeById(id: number): Promise<DatabaseEmployee | nu
   }
 }
 
+export type UpdateEmployeeData = {
+  nama: string;
+  jabatan?: string;
+  pangkat?: string;
+  foto?: string | null; // base64 string or null
+};
+
+export async function updateEmployee(id: number, data: UpdateEmployeeData): Promise<boolean> {
+  try {
+    console.log('🔄 Starting updateEmployee function with data:', {
+      id,
+      nama: data.nama,
+      jabatan: data.jabatan,
+      pangkat: data.pangkat,
+      hasPhoto: !!data.foto,
+      photoSize: data.foto ? data.foto.length : 0
+    });
+
+    const updateData: {
+      nama: string;
+      jabatan: string | null;
+      pangkat: string | null;
+      foto?: Buffer | null;
+    } = {
+      nama: data.nama,
+      jabatan: data.jabatan || null,
+      pangkat: data.pangkat || null,
+    };
+
+    // Only update photo if it's explicitly provided (including null for deletion)
+    if (data.foto !== undefined) {
+      if (data.foto === null) {
+        updateData.foto = null;
+        console.log('📷 Photo deleted');
+      } else if (typeof data.foto === 'string') {
+        // Convert base64 string to Buffer
+        const base64Data = data.foto.split(',')[1] || data.foto; // Remove data:image/...;base64, prefix if present
+        updateData.foto = Buffer.from(base64Data, 'base64');
+        console.log('📷 Photo updated:', `Buffer(${updateData.foto.length} bytes)`);
+      }
+    }
+
+    console.log('💾 Updating database with:', {
+      ...updateData,
+      foto: updateData.foto ? `Buffer(${updateData.foto.length} bytes)` : updateData.foto
+    });
+
+    await db.update(employeesTable)
+      .set(updateData)
+      .where(eq(employeesTable.id, id));
+    
+    console.log('✅ Employee updated successfully!');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to update employee:', error);
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      id,
+      data
+    });
+    return false;
+  }
+}
+
+export async function deleteEmployeePhoto(id: number): Promise<boolean> {
+  try {
+    console.log('🗑️ Deleting photo for employee ID:', id);
+    
+    await db.update(employeesTable)
+      .set({ foto: null })
+      .where(eq(employeesTable.id, id));
+    
+    console.log('✅ Photo deleted successfully!');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to delete photo:', error);
+    return false;
+  }
+}
+
 export async function addEmployee(data: {
   nama: string;
   nip: string;
