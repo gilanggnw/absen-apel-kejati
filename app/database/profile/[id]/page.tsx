@@ -1,0 +1,230 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import NextImage from 'next/image';
+
+// --- Mock Components for Preview ---
+interface HeaderProps {
+    username: string;
+    logoContent: React.ReactNode;
+}
+
+const Header = ({ username, logoContent }: HeaderProps) => (
+    <header className="w-full bg-gray-200 shadow-md">
+        <div className="flex justify-between items-center h-20 px-6 lg:px-8">
+            <div>{logoContent}</div>
+            <div className="flex items-center space-x-4">
+                <span className="text-gray-800 font-medium">Welcome {username}</span>
+            </div>
+        </div>
+    </header>
+);
+
+const Sidebar = () => (
+    <aside className="h-screen w-64 bg-gray-100 p-4 border-r border-gray-200">
+        {/* Sidebar content */}
+    </aside>
+);
+
+interface ImageProps {
+    src: string;
+    alt: string;
+    width: number;
+    height: number;
+    className?: string;
+    onError?: React.ReactEventHandler<HTMLImageElement>;
+}
+
+const Image = ({ src, alt, width, height, className, onError }: ImageProps) => (
+    <NextImage
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        className={className}
+        onError={onError}
+        unoptimized
+    />
+)
+// --- Page Specific Components ---
+
+// Employee Info Card
+interface Employee {
+    id: number;
+    name: string;
+    nip: string;
+    dob: string;
+    jabatan: string;
+    status: string;
+    imageUrl: string;
+}
+
+const EmployeeInfo = ({ employee }: { employee: Employee }) => (
+    <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-lg border mb-8 gap-6">
+        <div className="w-full md:w-auto">
+            <h2 className="text-lg font-bold mb-4">Informasi Pegawai</h2>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                <span className="font-semibold text-gray-700">Nama Pegawai:</span>
+                <span className="text-black">{employee.name}</span>
+                <span className="font-semibold text-gray-700">NIP:</span>
+                <span className="text-black">{employee.nip}</span>
+                <span className="font-semibold text-gray-700">Jabatan:</span>
+                <span className="text-black">{employee.jabatan}</span>
+                <span className="font-semibold text-gray-700">Status:</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    employee.status === 'Aktif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
+                    {employee.status}
+                </span>
+                <span className="font-semibold text-gray-700">Tanggal Lahir:</span>
+                <span className="text-black">{employee.dob}</span>
+            </div>
+        </div>
+        <Image
+            src={employee.imageUrl}
+            alt="Profile"
+            width={128}
+            height={128}
+            className="w-32 h-32 rounded-lg object-cover shadow-lg ring-2 ring-gray-300"
+            onError={(e) => { e.currentTarget.src='https://placehold.co/128x128/e2e8f0/4a5568?text=Photo'; }}
+        />
+    </div>
+);
+
+// Attendance Table
+interface AttendanceRecord {
+    date: string;
+    status: string;
+    photoAndTime: string;
+}
+
+const AttendanceTable = ({ records }: { records: AttendanceRecord[] }) => (
+    <div className="bg-white p-6 rounded-xl shadow-lg border">
+        <h2 className="text-lg font-bold mb-4">Riwayat Kehadiran</h2>
+        <div className="hidden md:grid grid-cols-3 gap-4 text-center font-semibold text-gray-700 mb-4">
+            <div>Tanggal</div>
+            <div>Status Kehadiran</div>
+            <div>Foto dan Jam</div>
+        </div>
+        <div className="space-y-4">
+            {records.map((record, index) => (
+                <div
+                    key={index}
+                    className={`grid grid-cols-3 gap-4 text-center items-center rounded-lg ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100 transition`}
+                >
+                    <div className="text-black py-2">{record.date}</div>
+                    <div className="py-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold
+                            ${record.status.includes('Hadir') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                        >
+                            {record.status}
+                        </span>
+                    </div>
+                    <div className="text-black py-2">{record.photoAndTime}</div>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+// --- Main Page Component ---
+const ProfilePage = () => {
+    const router = useRouter();
+    // You can use useParams if you want to get the id from the URL
+    const employeeId = '1'; // Replace with useParams if needed
+
+    // Mock data
+    const getEmployeeName = (id: string) => {
+        switch(id) {
+            case '1': return 'Budi Santoso';
+            default: return 'Unknown Employee';
+        }
+    };
+
+    const employeeData: Employee = {
+        id: parseInt(employeeId),
+        name: getEmployeeName(employeeId),
+        nip: '198503152010011001',
+        dob: '17 Agustus 1945',
+        jabatan: 'Kepala Bagian',
+        status: 'Aktif',
+        imageUrl: `https://placehold.co/128x128/334155/ffffff?text=BS`,
+    };
+
+    const attendanceData = [
+        { date: '7 Juli 2025', status: 'Hadir', photoAndTime: 'foto (07:09)' },
+        { date: '14 Juli 2025', status: 'Absen', photoAndTime: 'blank' },
+        { date: '21 Juli 2025', status: 'Hadir (telat)', photoAndTime: 'foto (07:50)' },
+    ];
+
+    const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date(2025, 6));
+
+    // Helper function to format a Date object into "YYYY-MM" string for the input
+    const formatDateForInput = (date: Date | null): string => {
+        if (!date) return '';
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        return `${year}-${month}`;
+    };
+
+    // Helper function to handle the change from the month input
+    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value; // Format: "YYYY-MM"
+        if (value) {
+            // We add '-02' to ensure parsing creates a date in the correct month, avoiding timezone issues.
+            setSelectedMonth(new Date(value + '-02T00:00:00'));
+        } else {
+            setSelectedMonth(null);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
+            <Header
+                username="superadmin (Administrator)"
+                logoContent={<h1 className="text-3xl font-bold text-black">Absen Apel</h1>}
+            />
+            <div className="flex flex-1">
+                <Sidebar />
+                <main className="flex-1 p-8">
+                    <div className="flex justify-between items-center mb-6">
+                        <button
+                            onClick={() => router.push('/database')}
+                            className="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg shadow hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                        >
+                            ← Kembali ke Database
+                        </button>
+                        <button
+                            onClick={() => alert('Edit Data clicked!')}
+                            className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
+                        >
+                            Edit Data
+                        </button>
+                    </div>
+                    <h1 className="text-2xl font-bold mb-6">Profile Pegawai</h1>
+                    <div className="flex flex-wrap gap-6 mb-8">
+                        <div className="flex items-center bg-white border-2 border-yellow-400 rounded-xl shadow-md px-6 py-4 relative">
+                            <label className="text-lg font-medium text-gray-700 mr-4">
+                                Pilih Bulan & Tahun:
+                            </label>
+                            <div className="relative w-44">
+                                <input
+                                    type="month"
+                                    value={formatDateForInput(selectedMonth)}
+                                    onChange={handleDateChange}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm p-2 font-semibold text-gray-800 focus:ring-yellow-400 focus:border-yellow-400 cursor-pointer bg-gray-50 hover:bg-yellow-50 transition"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <EmployeeInfo employee={employeeData} />
+                    <AttendanceTable records={attendanceData} />
+                </main>
+            </div>
+        </div>
+    );
+};
+
+export default ProfilePage;
