@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import NextImage from 'next/image';
+import { getEmployeeById, type DatabaseEmployee } from '../../actions';
+import Sidebar from '../../../components/Sidebar';
 
 // --- Mock Components for Preview ---
 interface HeaderProps {
@@ -21,11 +23,7 @@ const Header = ({ username, logoContent }: HeaderProps) => (
     </header>
 );
 
-const Sidebar = () => (
-    <aside className="h-screen w-64 bg-gray-100 p-4 border-r border-gray-200">
-        {/* Sidebar content */}
-    </aside>
-);
+// ...existing code...
 
 interface ImageProps {
     src: string;
@@ -52,12 +50,12 @@ const Image = ({ src, alt, width, height, className, onError }: ImageProps) => (
 // Employee Info Card
 interface Employee {
     id: number;
-    name: string;
+    nama: string;
     nip: string;
-    dob: string;
-    jabatan: string;
+    jabatan: string | null;
+    pangkat: string | null;
     status: string;
-    imageUrl: string;
+    imageUrl?: string;
 }
 
 const EmployeeInfo = ({ employee }: { employee: Employee }) => (
@@ -66,23 +64,23 @@ const EmployeeInfo = ({ employee }: { employee: Employee }) => (
             <h2 className="text-lg font-bold mb-4">Informasi Pegawai</h2>
             <div className="grid grid-cols-2 gap-x-8 gap-y-2">
                 <span className="font-semibold text-gray-700">Nama Pegawai:</span>
-                <span className="text-black">{employee.name}</span>
+                <span className="text-black">{employee.nama}</span>
                 <span className="font-semibold text-gray-700">NIP:</span>
                 <span className="text-black">{employee.nip}</span>
                 <span className="font-semibold text-gray-700">Jabatan:</span>
-                <span className="text-black">{employee.jabatan}</span>
+                <span className="text-black">{employee.jabatan || '-'}</span>
+                <span className="font-semibold text-gray-700">Pangkat:</span>
+                <span className="text-black">{employee.pangkat || '-'}</span>
                 <span className="font-semibold text-gray-700">Status:</span>
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                     employee.status === 'Aktif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                 }`}>
                     {employee.status}
                 </span>
-                <span className="font-semibold text-gray-700">Tanggal Lahir:</span>
-                <span className="text-black">{employee.dob}</span>
             </div>
         </div>
         <Image
-            src={employee.imageUrl}
+            src={employee.imageUrl || `https://placehold.co/128x128/334155/ffffff?text=${employee.nama.charAt(0)}`}
             alt="Profile"
             width={128}
             height={128}
@@ -131,34 +129,45 @@ const AttendanceTable = ({ records }: { records: AttendanceRecord[] }) => (
 // --- Main Page Component ---
 const ProfilePage = () => {
     const router = useRouter();
-    // You can use useParams if you want to get the id from the URL
-    const employeeId = '1'; // Replace with useParams if needed
+    const params = useParams();
+    const employeeId = params.id as string;
+    
+    const [employee, setEmployee] = useState<Employee | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date(2025, 6));
 
-    // Mock data
-    const getEmployeeName = (id: string) => {
-        switch(id) {
-            case '1': return 'Budi Santoso';
-            default: return 'Unknown Employee';
-        }
-    };
-
-    const employeeData: Employee = {
-        id: parseInt(employeeId),
-        name: getEmployeeName(employeeId),
-        nip: '198503152010011001',
-        dob: '17 Agustus 1945',
-        jabatan: 'Kepala Bagian',
-        status: 'Aktif',
-        imageUrl: `https://placehold.co/128x128/334155/ffffff?text=BS`,
-    };
+    // Fetch employee data
+    useEffect(() => {
+        const fetchEmployee = async () => {
+            if (employeeId) {
+                setLoading(true);
+                try {
+                    const data = await getEmployeeById(parseInt(employeeId));
+                    if (data) {
+                        setEmployee({
+                            id: data.id,
+                            nama: data.nama,
+                            nip: data.nip,
+                            jabatan: data.jabatan,
+                            pangkat: data.pangkat,
+                            status: 'Aktif', // Default status, you can add this to your schema later
+                        });
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch employee:', error);
+                } finally {
+                    setLoading(false);
+                }
+            }
+        };
+        fetchEmployee();
+    }, [employeeId]);
 
     const attendanceData = [
         { date: '7 Juli 2025', status: 'Hadir', photoAndTime: 'foto (07:09)' },
         { date: '14 Juli 2025', status: 'Absen', photoAndTime: 'blank' },
         { date: '21 Juli 2025', status: 'Hadir (telat)', photoAndTime: 'foto (07:50)' },
     ];
-
-    const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date(2025, 6));
 
     // Helper function to format a Date object into "YYYY-MM" string for the input
     const formatDateForInput = (date: Date | null): string => {
@@ -178,6 +187,44 @@ const ProfilePage = () => {
             setSelectedMonth(null);
         }
     };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
+                <Header
+                    username="superadmin (Administrator)"
+                    logoContent={<h1 className="text-3xl font-bold text-black">Absen Apel</h1>}
+                />
+                <div className="flex flex-1">
+                    <Sidebar />
+                    <main className="flex-1 p-8">
+                        <div className="flex justify-center items-center h-64">
+                            <div className="text-xl text-gray-600">Loading...</div>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        );
+    }
+
+    if (!employee) {
+        return (
+            <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
+                <Header
+                    username="superadmin (Administrator)"
+                    logoContent={<h1 className="text-3xl font-bold text-black">Absen Apel</h1>}
+                />
+                <div className="flex flex-1">
+                    <Sidebar />
+                    <main className="flex-1 p-8">
+                        <div className="flex justify-center items-center h-64">
+                            <div className="text-xl text-red-600">Employee not found</div>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
@@ -219,7 +266,7 @@ const ProfilePage = () => {
                         </div>
                     </div>
 
-                    <EmployeeInfo employee={employeeData} />
+                    <EmployeeInfo employee={employee} />
                     <AttendanceTable records={attendanceData} />
                 </main>
             </div>

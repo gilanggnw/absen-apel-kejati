@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -34,6 +33,10 @@ const DatabasePage = () => {
   const router = useRouter();
   // State for the list of employees
   const [employees, setEmployees] = useState<Employee[]>([]);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
+
   // Fetch employees from the database on mount
   useEffect(() => {
     async function fetchData() {
@@ -50,6 +53,7 @@ const DatabasePage = () => {
     }
     fetchData();
   }, []);
+
   // State for the search filter
   const [searchTerm, setSearchTerm] = useState('');
   // State for the status filter
@@ -88,17 +92,28 @@ const DatabasePage = () => {
           return false;
         }
         // Filter by search term (case-insensitive search on name and NIP)
-        if (searchTerm && 
-            !employee.nama.toLowerCase().includes(searchTerm.toLowerCase()) && 
-            !employee.nip.includes(searchTerm)) {
+        if (searchTerm &&
+          !employee.nama.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          !employee.nip.includes(searchTerm)) {
           return false;
         }
         return true;
       });
   }, [employees, searchTerm, statusFilter]);
+  
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredEmployees.length / pageSize);
+  const paginatedEmployees = useMemo(() => {
+    const startIdx = (currentPage - 1) * pageSize;
+    return filteredEmployees.slice(startIdx, startIdx + pageSize);
+  }, [filteredEmployees, currentPage, pageSize]);
 
   // --- CRUD Action Handlers (with console logs for demonstration) ---
-
   const handleAddEmployee = () => {
     setShowAddDialog(true);
   };
@@ -127,6 +142,44 @@ const DatabasePage = () => {
     console.log(`Action: Delete employee with ID ${id}`);
     setEmployees(employees.filter(employee => employee.id !== id));
   };
+  
+  // --- NEW: Memoized Pagination Range Logic ---
+  const paginationRange = useMemo(() => {
+    const totalPageNumbers = 7; // Total numbers to show (e.g., 1 ... 4 5 6 ... 10)
+
+    if (totalPages <= totalPageNumbers) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    
+    const siblingCount = 1;
+    const leftSiblingIndex = Math.max(currentPage - siblingCount, 1);
+    const rightSiblingIndex = Math.min(currentPage + siblingCount, totalPages);
+
+    const shouldShowLeftDots = leftSiblingIndex > 2;
+    const shouldShowRightDots = rightSiblingIndex < totalPages - 2;
+
+    const firstPageIndex = 1;
+    const lastPageIndex = totalPages;
+    
+    if (!shouldShowLeftDots && shouldShowRightDots) {
+        let leftItemCount = 3 + 2 * siblingCount;
+        let leftRange = Array.from({ length: leftItemCount }, (_, i) => i + 1);
+        return [...leftRange, '...', totalPages];
+    }
+
+    if (shouldShowLeftDots && !shouldShowRightDots) {
+        let rightItemCount = 3 + 2 * siblingCount;
+        let rightRange = Array.from({ length: rightItemCount }, (_, i) => totalPages - rightItemCount + i + 1);
+        return [firstPageIndex, '...', ...rightRange];
+    }
+    
+    if (shouldShowLeftDots && shouldShowRightDots) {
+        let middleRange = Array.from({ length: rightSiblingIndex - leftSiblingIndex + 1 }, (_, i) => leftSiblingIndex + i);
+        return [firstPageIndex, '...', ...middleRange, '...', lastPageIndex];
+    }
+    return []; // Should not happen
+  }, [totalPages, currentPage]);
+
 
   return (
     <div className="bg-gray-50 min-h-screen font-sans">
@@ -258,8 +311,8 @@ const DatabasePage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredEmployees.length > 0 ? (
-                    filteredEmployees.map((employee) => (
+                  {paginatedEmployees.length > 0 ? (
+                    paginatedEmployees.map((employee) => (
                       <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{employee.nama}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">{employee.nip}</td>
@@ -286,7 +339,7 @@ const DatabasePage = () => {
                                 <ThreeDotIcon />
                               </button>
                               {openMenuId === employee.id && (
-                                <div 
+                                <div
                                   className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10"
                                   onClick={(e) => e.stopPropagation()}
                                 >
@@ -325,6 +378,66 @@ const DatabasePage = () => {
                 </tbody>
               </table>
             </div>
+            
+            {/* --- FIXED & STYLED Pagination Controls --- */}
+            {totalPages > 0 && (
+                <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-600">
+                        Menampilkan <span className="font-semibold text-gray-800">{paginatedEmployees.length}</span> dari <span className="font-semibold text-gray-800">{filteredEmployees.length}</span> pegawai
+                    </div>
+                    <nav aria-label="Pagination">
+                        <ul className="flex items-center -space-x-px h-10 text-base">
+                            <li>
+                                <button
+                                    onClick={() => setCurrentPage(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className="flex items-center justify-center px-4 h-10 ms-0 leading-tight text-gray-500 bg-white border border-e-0 border-gray-300 rounded-s-lg hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <span className="sr-only">Previous</span>
+                                    <svg className="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 1 1 5l4 4"/>
+                                    </svg>
+                                </button>
+                            </li>
+                            {paginationRange.map((page, index) => {
+                                if (page === '...') {
+                                    return (
+                                        <li key={`dots-${index}`}>
+                                            <span className="flex items-center justify-center px-4 h-10 leading-tight text-gray-500 bg-white border border-gray-300">...</span>
+                                        </li>
+                                    );
+                                }
+                                return (
+                                    <li key={page}>
+                                        <button
+                                            onClick={() => setCurrentPage(page as number)}
+                                            className={`flex items-center justify-center px-4 h-10 leading-tight border ${
+                                                currentPage === page
+                                                    ? 'z-10 text-white border-blue-600 bg-blue-600'
+                                                    : 'text-gray-500 bg-white border-gray-300 hover:bg-gray-100 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                             <li>
+                                <button
+                                    onClick={() => setCurrentPage(currentPage + 1)}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="flex items-center justify-center px-4 h-10 leading-tight text-gray-500 bg-white border border-s-0 border-gray-300 rounded-e-lg hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <span className="sr-only">Next</span>
+                                     <svg className="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
+                                    </svg>
+                                </button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            )}
           </div>
         </main>
       </div>
