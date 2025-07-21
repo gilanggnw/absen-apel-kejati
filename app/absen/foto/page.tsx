@@ -16,10 +16,8 @@ export default function FotoPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Function to start the camera
-  const startCamera = async () => {
-    // Don't start if there's already a stream
-    if (stream) return; 
-    
+  const startCamera = React.useCallback(async () => {
+    if (stream) return;
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
       setStream(mediaStream);
@@ -28,17 +26,16 @@ export default function FotoPage() {
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
-      // Handle errors, e.g., show a message to the user
     }
-  };
+  }, [stream]);
 
   // Function to stop the camera
-  const stopCamera = () => {
+  const stopCamera = React.useCallback(() => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
-  };
+  }, [stream]);
 
   // Function to capture a photo from the video stream
   const handleTakePhoto = () => {

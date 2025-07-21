@@ -8,6 +8,9 @@ import Sidebar from '../components/Sidebar';
 
 // Main Page Component
 const VerifikasiPage = () => {
+  const [showDialog, setShowDialog] = useState(false);
+  const handleVerifikasiClick = () => setShowDialog(true);
+  const handleCloseDialog = () => setShowDialog(false);
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
       {/* Header */}
@@ -61,7 +64,7 @@ const VerifikasiPage = () => {
                 <div className="text-3xl font-bold text-red-600">200</div>
               </div>
             </div>
-            <button className="py-2 px-6 bg-gray-300 text-black font-semibold rounded-lg shadow-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+            <button className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-105">
               Cetak Laporan
             </button>
           </div>
@@ -103,9 +106,9 @@ const VerifikasiPage = () => {
                         </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Diterima
-                        </span>
+                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-300 text-gray-600 cursor-not-allowed" disabled>
+                          Diterima
+                        </button>
                     </td>
                     </tr>
                     <tr>
@@ -119,9 +122,9 @@ const VerifikasiPage = () => {
                         </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                        Ditolak
-                        </span>
+                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200 cursor-pointer" onClick={handleVerifikasiClick}>
+                          Verifikasi
+                        </button>
                     </td>
                     </tr>
                     <tr>
@@ -135,14 +138,32 @@ const VerifikasiPage = () => {
                         </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Diterima
-                        </span>
+                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-300 text-gray-600 cursor-not-allowed" disabled>
+                          Diterima
+                        </button>
                     </td>
                     </tr>
                 </tbody>
             </table>
           </div>
+
+        {/* Dialog Modal */}
+        {showDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.75)' }}>
+            <div className="bg-white rounded-lg shadow-xl p-10 w-full max-w-2xl relative">
+              <button className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold" onClick={handleCloseDialog}>&times;</button>
+              <h2 className="text-2xl font-bold mb-8 text-center">Verifikasi Pegawai</h2>
+              <div className="flex justify-center gap-8 mb-10">
+                <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">Foto 1</div>
+                <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">Foto 2</div>
+              </div>
+              <div className="flex justify-center gap-6 mt-4">
+                <button className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 transition-all duration-200">Approve</button>
+                <button className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg shadow hover:bg-red-700 transition-all duration-200">Decline</button>
+              </div>
+            </div>
+          </div>
+        )}
         </main>
       </div>
     </div>

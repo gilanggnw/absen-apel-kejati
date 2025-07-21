@@ -61,7 +61,7 @@ const AbsenApelPage = () => {
                 <div className="text-3xl font-bold text-red-600">141</div>
               </div>
             </div>
-            <button className="py-2 px-6 bg-gray-300 text-black font-semibold rounded-lg shadow-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+            <button className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-105">
               Cetak Laporan
             </button>
           </div>
