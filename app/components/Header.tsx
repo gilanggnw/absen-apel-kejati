@@ -52,7 +52,7 @@ const Header = ({ logoContent }: HeaderProps) => {
     if (!session?.user) return "Guest";
     
     const name = session.user.name || session.user.email;
-    const role = (session.user as any).role;
+    const role = session.user.role;
     
     if (role) {
       return `${name} (${role.charAt(0).toUpperCase() + role.slice(1)})`;

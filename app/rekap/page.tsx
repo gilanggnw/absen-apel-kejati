@@ -12,7 +12,6 @@ const AbsenApelPage = () => {
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
       {/* Header */}
       <Header
-        username="adminverif (Administrator)"
         logoContent={
           <h1 className="text-3xl font-bold text-black">Absen Apel</h1>
         }
