@@ -6,7 +6,7 @@ import React from 'react';
 const UserIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    className="h-8 w-8 text-gray-800"
+    className="h-8 w-8 text-[#222]"
     viewBox="0 0 20 20"
     fill="currentColor"
   >
@@ -27,7 +27,7 @@ interface HeaderProps {
 // The Header component
 const Header = ({ username = "adminverif (Administrator)", logoContent }: HeaderProps) => {
   return (
-    <header className="w-full bg-gray-200">
+    <header className="w-full bg-[#FFD600]">
       <div className="max-w-full mx-auto px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           {/* Logo/Title on the left */}
@@ -37,8 +37,8 @@ const Header = ({ username = "adminverif (Administrator)", logoContent }: Header
 
           {/* Welcome message and User Icon on the right */}
           <div className="flex items-center space-x-4">
-            <span className="text-gray-800 font-medium">Welcome {username}</span>
-            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-gray-300">
+            <span className="text-[#222] font-medium">Welcome {username}</span>
+            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-white/60">
               <UserIcon />
             </div>
           </div>
