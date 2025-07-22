@@ -1,13 +1,33 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
-import { signIn} from 'next-auth/react';
+import { FormEvent, useState, useEffect } from 'react';
+import { signIn, useSession } from 'next-auth/react';
 
 export default function Page() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Redirect based on role after login
+  useEffect(() => {
+    if (session?.user?.role) {
+      switch (session.user.role) {
+        case 'superadmin':
+          router.push('/database');
+          break;
+        case 'adminverif':
+          router.push('/rekap');
+          break;
+        case 'user':
+          router.push('/absen');
+          break;
+        default:
+          router.push('/absen');
+      }
+    }
+  }, [session, router]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -27,9 +47,8 @@ export default function Page() {
 
       if (result?.error) {
         setError('Invalid credentials');
-      } else {
-        router.push('/absen');
       }
+      // Redirect will be handled by useEffect based on role
     } catch {
       setError('An error occurred during sign in');
     } finally {
