@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { db } from './index';
-import { employeesTable } from './schema';
+import { employeesTable, usersTable } from './schema';
 
 const employeeData = [
   { nip: '198503152010011001', nama: 'Budi Santoso', jabatan: 'Kepala Bagian', pangkat: 'Pembina Utama Muda' },
@@ -69,9 +69,27 @@ export async function seedEmployees() {
   }
 }
 
+export async function seedUsers() {
+  try {
+    console.log('🌱 Starting to seed admin user...');
+    
+    // Create a default admin user
+    await db.insert(usersTable).values({
+      name: 'Admin User',
+      email: 'admin@kejati.go.id',
+      password: 'admin123', // In production, this should be hashed
+      role: 'admin'
+    });
+    
+    console.log('✅ Successfully created admin user');
+  } catch (error) {
+    console.error('❌ Error seeding admin user:', error);
+  }
+}
+
 // Run the seed function if this file is executed directly
 if (require.main === module) {
-  seedEmployees()
+  Promise.all([seedEmployees(), seedUsers()])
     .then(() => {
       console.log('✨ Seeding completed!');
       process.exit(0);

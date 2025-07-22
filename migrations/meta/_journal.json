@@ -22,6 +22,27 @@
       "when": 1752733847260,
       "tag": "0002_open_landau",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1753156213639,
+      "tag": "0003_spooky_star_brand",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1753157076157,
+      "tag": "0004_luxuriant_silver_sable",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1753157547514,
+      "tag": "0005_flowery_lethal_legion",
+      "breakpoints": true
     }
   ]
 }

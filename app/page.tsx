@@ -1,15 +1,40 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
+import { signIn} from 'next-auth/react';
 
 export default function Page() {
   const router = useRouter();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // You can add authentication logic here if needed
-    router.push('/absen');
+    setLoading(true);
+    setError('');
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError('Invalid credentials');
+      } else {
+        router.push('/absen');
+      }
+    } catch {
+      setError('An error occurred during sign in');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,12 +74,18 @@ export default function Page() {
             ABSEN APEL
           </h1>
           <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
+            {error && (
+              <div className="text-red-600 text-sm text-center bg-red-100 p-2 rounded">
+                {error}
+              </div>
+            )}
             <input
-              type="text"
-              name="username"
-              placeholder="Username"
+              type="email"
+              name="email"
+              placeholder="Email"
               className="rounded-lg bg-white/80 px-4 py-3 text-base text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-white"
-              aria-label="Username"
+              aria-label="Email"
+              required
             />
             <input
               type="password"
@@ -62,12 +93,14 @@ export default function Page() {
               placeholder="Password"
               className="rounded-lg bg-white/80 px-4 py-3 text-base text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-white"
               aria-label="Password"
+              required
             />
             <button
               type="submit"
-              className="rounded-lg bg-[#22B573] py-3 font-semibold text-white transition hover:bg-[#1a9e5f]"
+              disabled={loading}
+              className="rounded-lg bg-[#22B573] py-3 font-semibold text-white transition hover:bg-[#1a9e5f] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Login
+              {loading ? 'Signing in...' : 'Login'}
             </button>
           </form>
         </div>
