@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { db } from './index';
-import { employeesTable, usersTable } from './schema';
-
+import { usersTable } from './schema';
+/*
 const employeeData = [
   { nip: '198503152010011001', nama: 'Budi Santoso', jabatan: 'Kepala Bagian', pangkat: 'Pembina Utama Muda' },
   { nip: '199008202015032002', nama: 'Citra Lestari', jabatan: 'Staf Administrasi', pangkat: 'Penata Muda' },
@@ -54,7 +54,8 @@ const employeeData = [
   { nip: '198909222015021050', nama: 'Yusuf Ibrahim', jabatan: 'Infrastructure Engineer', pangkat: 'Penata' },
   { nip: '199712302022032051', nama: 'Zahra Aulia', jabatan: 'Blockchain Developer', pangkat: 'Penata Muda' },
 ];
-
+*/
+/*
 export async function seedEmployees() {
   try {
     console.log('🌱 Starting to seed employees table...');
@@ -68,28 +69,30 @@ export async function seedEmployees() {
     console.error('❌ Error seeding employees:', error);
   }
 }
+*/
 
 export async function seedUsers() {
   try {
-    console.log('🌱 Starting to seed admin user...');
+    console.log('🌱 Starting to seed users...');
     
-    // Create a default admin user
-    await db.insert(usersTable).values({
-      name: 'Admin User',
-      email: 'admin@kejati.go.id',
-      password: 'admin123', // In production, this should be hashed
-      role: 'admin'
-    });
-    
-    console.log('✅ Successfully created admin user');
+    const users = [
+      { name: 'Super Admin Kejati', email: 'admin@kejati.go.id', password: 'super123', role: 'superadmin' },
+      { name: 'Admin Verifikasi', email: 'verif@kejati.go.id', password: 'verif123', role: 'adminverif' },
+      { name: 'Absensi', email: 'absensi@kejati.go.id', password: 'absensi123', role: 'user' },
+      // Add more users as needed
+    ];
+
+    await db.insert(usersTable).values(users);
+
+    console.log(`✅ Successfully created ${users.length} users`);
   } catch (error) {
-    console.error('❌ Error seeding admin user:', error);
+    console.error('❌ Error seeding users:', error);
   }
 }
 
 // Run the seed function if this file is executed directly
 if (require.main === module) {
-  Promise.all([seedEmployees(), seedUsers()])
+  Promise.all([seedUsers()])
     .then(() => {
       console.log('✨ Seeding completed!');
       process.exit(0);
