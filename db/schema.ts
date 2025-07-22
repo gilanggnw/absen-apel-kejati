@@ -75,4 +75,5 @@ export const attendanceTable = sqliteTable("attendance", {
   photo: blob(),
   status: text().notNull(),
   verified_by: text().references(() => usersTable.id),
+  verified_status: text().notNull().default("pending"),
 });

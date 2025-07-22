@@ -1,0 +1,1 @@
+ALTER TABLE `attendance` ADD `verified_status` text DEFAULT 'pending' NOT NULL;
