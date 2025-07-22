@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
+import Image from 'next/image';
 
 export default function Page() {
   const router = useRouter();
@@ -58,31 +59,17 @@ export default function Page() {
 
   return (
     <main className="min-h-screen w-full bg-[#FFD600] grid grid-cols-1 md:grid-cols-2">
-      {/* Left Side: Logo Placeholder */}
+      {/* Left Side: Logo */}
       <div className="flex items-center justify-center bg-white">
         <div className="flex flex-col items-center justify-center">
-          {/* Big SVG placeholder icon */}
-          <svg
-            width="180"
-            height="180"
-            viewBox="0 0 180 180"
-            fill="none"
-            className="mb-6"
-          >
-            <circle cx="90" cy="90" r="90" fill="#FFD600" />
-            <text
-              x="90"
-              y="110"
-              textAnchor="middle"
-              fill="#FFF"
-              fontSize="60"
-              fontWeight="bold"
-              fontFamily="Arial, sans-serif"
-            >
-              Logo
-            </text>
-          </svg>
-          <span className="text-2xl font-semibold text-black opacity-60">Placeholder</span>
+          <Image
+            src="/logo.png"
+            alt="Logo Kejaksaaan"
+            width={500}
+            height={500}
+            className="object-contain"
+            priority
+          />
         </div>
       </div>
 
