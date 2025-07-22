@@ -86,7 +86,7 @@ const VerifikasiPage = () => {
                         Timestamp
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status Verifikasi
+                        Ketepatan Waktu
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Hasil Verifikasi
@@ -105,7 +105,7 @@ const VerifikasiPage = () => {
                         </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-300 text-gray-600 cursor-not-allowed" disabled>
+                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-green-600 text-white cursor-not-allowed" disabled>
                           Diterima
                         </button>
                     </td>
@@ -121,8 +121,13 @@ const VerifikasiPage = () => {
                         </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200 cursor-pointer" onClick={handleVerifikasiClick}>
-                          Verifikasi
+                        <button className="px-3 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl border-2 border-blue-300" onClick={handleVerifikasiClick}>
+                          <span className="flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            Verifikasi!
+                          </span>
                         </button>
                     </td>
                     </tr>
@@ -137,8 +142,24 @@ const VerifikasiPage = () => {
                         </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-300 text-gray-600 cursor-not-allowed" disabled>
+                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-green-600 text-white cursor-not-allowed" disabled>
                           Diterima
+                        </button>
+                    </td>
+                    </tr>
+                    <tr>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">4</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Andi Setiawan</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">198801222012061028</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">08:45:15</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-200 text-red-800">
+                        Ditolak
+                        </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-red-600 text-white cursor-not-allowed" disabled>
+                          Ditolak
                         </button>
                     </td>
                     </tr>
