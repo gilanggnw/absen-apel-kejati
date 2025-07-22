@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '../../db';
-import { employeesTable } from '../../db/schema';
-import { eq } from 'drizzle-orm';
+import { employeesTable, attendanceTable } from '../../db/schema';
+import { eq, sql } from 'drizzle-orm';
 
 export type DatabaseEmployee = {
   id: number;
@@ -193,5 +193,121 @@ export async function addEmployee(data: {
       data: data
     });
     return false;
+  }
+}
+
+export async function searchEmployees(searchTerm: string): Promise<DatabaseEmployee[]> {
+  try {
+    if (!searchTerm.trim()) {
+      return [];
+    }
+
+    const employees = await db
+      .select()
+      .from(employeesTable)
+      .where(
+        // Search by nama (case insensitive) or nip starting with the search term
+        sql`LOWER(${employeesTable.nama}) LIKE LOWER(${searchTerm + '%'}) OR ${employeesTable.nip} LIKE ${searchTerm + '%'}`
+      )
+      .limit(10); // Limit results for performance
+
+    // Convert binary foto to base64 string
+    return employees.map(employee => ({
+      ...employee,
+      foto: employee.foto ? `data:image/jpeg;base64,${Buffer.from(employee.foto as Uint8Array).toString('base64')}` : null
+    }));
+  } catch (error) {
+    console.error('Failed to search employees:', error);
+    return [];
+  }
+}
+
+// Attendance related functions
+export type AttendanceData = {
+  nip: string;
+  photo: string; // base64 string
+  status: string;
+  verified_by?: string;
+};
+
+export type AttendanceRecord = {
+  id: number;
+  nip: string | null;
+  timestamp: number;
+  photo: unknown;
+  status: string;
+  verified_by: string | null;
+};
+
+export async function saveAttendance(data: AttendanceData): Promise<boolean> {
+  try {
+    console.log('🚀 Starting saveAttendance function with data:', {
+      nip: data.nip,
+      status: data.status,
+      verified_by: data.verified_by,
+      hasPhoto: !!data.photo,
+      photoLength: data.photo?.length
+    });
+
+    // Convert base64 photo to buffer
+    let photoBuffer = null;
+    if (data.photo) {
+      console.log('📷 Processing photo...');
+      // Remove data:image/...;base64, prefix if present
+      const base64Data = data.photo.includes(',') ? data.photo.split(',')[1] : data.photo;
+      photoBuffer = Buffer.from(base64Data, 'base64');
+      console.log('✅ Photo converted to buffer, size:', photoBuffer.length, 'bytes');
+    }
+
+    const insertData = {
+      nip: data.nip,
+      timestamp: Date.now(), // Current timestamp in milliseconds
+      photo: photoBuffer,
+      status: data.status,
+      verified_by: data.verified_by || null,
+    };
+
+    console.log('💾 Inserting attendance data to database:', {
+      ...insertData,
+      photo: photoBuffer ? `Buffer(${photoBuffer.length} bytes)` : null
+    });
+
+    const result = await db.insert(attendanceTable).values(insertData);
+    
+    console.log('✅ Database insertion successful:', result);
+    console.log('🎉 Attendance record saved successfully!');
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to save attendance:', error);
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      data: {
+        ...data,
+        photo: data.photo ? `[${data.photo.length} chars]` : null
+      }
+    });
+    return false;
+  }
+}
+
+export async function getAttendanceByNip(nip: string, date?: Date): Promise<AttendanceRecord[]> {
+  try {
+    const startOfDay = date ? new Date(date).setHours(0, 0, 0, 0) : new Date().setHours(0, 0, 0, 0);
+    const endOfDay = date ? new Date(date).setHours(23, 59, 59, 999) : new Date().setHours(23, 59, 59, 999);
+
+    const records = await db
+      .select()
+      .from(attendanceTable)
+      .where(
+        // Filter by NIP and date range
+        sql`${attendanceTable.nip} = ${nip} AND ${attendanceTable.timestamp} >= ${startOfDay} AND ${attendanceTable.timestamp} <= ${endOfDay}`
+      );
+
+    return records;
+  } catch (error) {
+    console.error('Failed to fetch attendance records:', error);
+    return [];
   }
 }
