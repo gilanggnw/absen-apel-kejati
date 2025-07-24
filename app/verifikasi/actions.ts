@@ -2,7 +2,7 @@
 
 import { db } from '@/db';
 import { attendanceTable, employeesTable } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, gte, lte } from 'drizzle-orm';
 
 export interface AttendanceRecord {
   id: number;
@@ -16,9 +16,10 @@ export interface AttendanceRecord {
   employeePhoto: string | null; // Add employee photo
 }
 
-export async function getAttendanceForVerification(): Promise<AttendanceRecord[]> {
+export async function getAttendanceForVerification(selectedDate?: Date): Promise<AttendanceRecord[]> {
   try {
-    const records = await db
+    // Build base query
+    const baseQuery = db
       .select({
         id: attendanceTable.id,
         nip: attendanceTable.nip,
@@ -31,8 +32,27 @@ export async function getAttendanceForVerification(): Promise<AttendanceRecord[]
         employeePhoto: employeesTable.foto, // Add employee photo
       })
       .from(attendanceTable)
-      .innerJoin(employeesTable, eq(attendanceTable.nip, employeesTable.nip))
-      .orderBy(desc(attendanceTable.timestamp));
+      .innerJoin(employeesTable, eq(attendanceTable.nip, employeesTable.nip));
+
+    // Execute query with or without date filter
+    let records;
+    if (selectedDate) {
+      const startOfDay = new Date(selectedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(selectedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      records = await baseQuery
+        .where(
+          and(
+            gte(attendanceTable.timestamp, startOfDay.getTime()),
+            lte(attendanceTable.timestamp, endOfDay.getTime())
+          )
+        )
+        .orderBy(desc(attendanceTable.timestamp));
+    } else {
+      records = await baseQuery.orderBy(desc(attendanceTable.timestamp));
+    }
 
     return records.map(record => ({
       ...record,
@@ -97,5 +117,58 @@ export async function getAttendanceStats() {
       pending: 0,
       rejected: 0,
     };
+  }
+}
+
+export async function getDatesWithPendingRequests(): Promise<string[]> {
+  try {
+    const records = await db
+      .select({
+        timestamp: attendanceTable.timestamp,
+      })
+      .from(attendanceTable)
+      .where(eq(attendanceTable.verified_status, 'pending'));
+
+    // Convert timestamps to date strings (YYYY-MM-DD format) considering local timezone
+    const datesWithPending = records.map(record => {
+      const date = new Date(record.timestamp);
+      // Use local date to avoid timezone issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    });
+
+    // Remove duplicates and return unique dates
+    return [...new Set(datesWithPending)];
+  } catch (error) {
+    console.error('Error fetching dates with pending requests:', error);
+    return [];
+  }
+}
+
+export async function getDatesWithAttendanceRecords(): Promise<string[]> {
+  try {
+    const records = await db
+      .select({
+        timestamp: attendanceTable.timestamp,
+      })
+      .from(attendanceTable);
+
+    // Convert timestamps to date strings (YYYY-MM-DD format) considering local timezone
+    const datesWithRecords = records.map(record => {
+      const date = new Date(record.timestamp);
+      // Use local date to avoid timezone issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    });
+
+    // Remove duplicates and return unique dates
+    return [...new Set(datesWithRecords)];
+  } catch (error) {
+    console.error('Error fetching dates with attendance records:', error);
+    return [];
   }
 }

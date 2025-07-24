@@ -11,6 +11,8 @@ import {
   getAttendanceForVerification, 
   updateVerificationStatus, 
   getAttendanceStats,
+  getDatesWithPendingRequests,
+  getDatesWithAttendanceRecords,
   type AttendanceRecord 
 } from './actions';
 
@@ -22,27 +24,34 @@ const VerifikasiPage = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0 });
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [datesWithPending, setDatesWithPending] = useState<string[]>([]);
+  const [datesWithAttendance, setDatesWithAttendance] = useState<string[]>([]);
 
-  // Load data on component mount
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [records, statsData] = await Promise.all([
-        getAttendanceForVerification(),
-        getAttendanceStats()
+      const [records, statsData, pendingDates, availableDates] = await Promise.all([
+        getAttendanceForVerification(selectedDate || undefined),
+        getAttendanceStats(),
+        getDatesWithPendingRequests(),
+        getDatesWithAttendanceRecords()
       ]);
       setAttendanceRecords(records);
       setStats(statsData);
+      setDatesWithPending(pendingDates);
+      setDatesWithAttendance(availableDates);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate]);
+
+  // Load data on component mount and when date changes
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleVerifikasiClick = (record: AttendanceRecord) => {
     setSelectedRecord(record);
@@ -118,6 +127,10 @@ const VerifikasiPage = () => {
         return { text: 'Verifikasi!', bgColor: '', textColor: '', disabled: false };
     }
   };
+
+  const handleDateChange = (date: Date | null) => {
+    setSelectedDate(date);
+  };
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
       {/* Header */}
@@ -140,18 +153,71 @@ const VerifikasiPage = () => {
             <div className="relative w-48">
               <DatePicker
                 id="date-picker"
-                selected={useState(new Date())[0]}
-                onChange={() => {}}
+                selected={selectedDate}
+                onChange={handleDateChange}
                 dateFormat="dd MMMM yyyy"
-                className="block w-full rounded-md border border-gray-400 shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50 p-2 pr-10"
+                className="block w-full rounded-md border border-gray-400 shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50 p-2 pr-16"
+                placeholderText="Semua tanggal"
+                isClearable
+                filterDate={(date) => {
+                  // Only allow dates that have attendance records
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  const dateString = `${year}-${month}-${day}`;
+                  return datesWithAttendance.includes(dateString);
+                }}
+                renderDayContents={(day, date) => {
+                  if (!date) return day;
+                  
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const dayStr = String(date.getDate()).padStart(2, '0');
+                  const dateString = `${year}-${month}-${dayStr}`;
+                  
+                  const hasPending = datesWithPending.includes(dateString);
+                  const hasAttendance = datesWithAttendance.includes(dateString);
+                  
+                  return (
+                    <div 
+                      style={{ 
+                        position: 'relative', 
+                        display: 'inline-block',
+                        opacity: hasAttendance ? 1 : 0.3,
+                        color: hasAttendance ? 'inherit' : '#9ca3af'
+                      }}
+                    >
+                      {day}
+                      {hasPending && hasAttendance && (
+                        <span 
+                          style={{
+                            position: 'absolute',
+                            top: '-2px',
+                            right: '-2px',
+                            color: '#dc2626',
+                            fontSize: '10px',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          !
+                        </span>
+                      )}
+                    </div>
+                  );
+                }}
               />
-              {/* Arrow icon */}
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              {/* Arrow icon - positioned to avoid overlap with clear button */}
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
             </div>
+            {selectedDate && (
+              <div className="ml-4 text-sm text-gray-600">
+                Menampilkan data untuk: <span className="font-semibold">{selectedDate.toLocaleDateString('id-ID')}</span>
+              </div>
+            )}
           </div>
 
           {/* Stats and Report Button */}
