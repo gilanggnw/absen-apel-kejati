@@ -1,16 +1,123 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
+import Image from 'next/image';
+import { useSession } from 'next-auth/react';
+import { 
+  getAttendanceForVerification, 
+  updateVerificationStatus, 
+  getAttendanceStats,
+  type AttendanceRecord 
+} from './actions';
 
 // Main Page Component
 const VerifikasiPage = () => {
+  const { data: session } = useSession();
   const [showDialog, setShowDialog] = useState(false);
-  const handleVerifikasiClick = () => setShowDialog(true);
-  const handleCloseDialog = () => setShowDialog(false);
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0 });
+  const [loading, setLoading] = useState(true);
+
+  // Load data on component mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [records, statsData] = await Promise.all([
+        getAttendanceForVerification(),
+        getAttendanceStats()
+      ]);
+      setAttendanceRecords(records);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifikasiClick = (record: AttendanceRecord) => {
+    setSelectedRecord(record);
+    setShowDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setShowDialog(false);
+    setSelectedRecord(null);
+  };
+
+  const handleApprove = async () => {
+    if (!selectedRecord || !session?.user?.id) return;
+
+    try {
+      const result = await updateVerificationStatus(
+        selectedRecord.id,
+        'approved',
+        session.user.id
+      );
+
+      if (result.success) {
+        await loadData(); // Reload data
+        handleCloseDialog();
+      }
+    } catch (error) {
+      console.error('Error approving record:', error);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedRecord || !session?.user?.id) return;
+
+    try {
+      const result = await updateVerificationStatus(
+        selectedRecord.id,
+        'rejected',
+        session.user.id
+      );
+
+      if (result.success) {
+        await loadData(); // Reload data
+        handleCloseDialog();
+      }
+    } catch (error) {
+      console.error('Error rejecting record:', error);
+    }
+  };
+
+  const formatTimestamp = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const getKetepatanWaktu = (status: string) => {
+    if (status.toLowerCase().includes('telat') || status.toLowerCase().includes('terlambat')) {
+      return { text: 'Terlambat', bgColor: 'bg-red-200', textColor: 'text-red-800' };
+    }
+    return { text: 'Tepat Waktu', bgColor: 'bg-green-200', textColor: 'text-green-800' };
+  };
+
+  const getVerifiedStatus = (verifiedStatus: string) => {
+    switch (verifiedStatus) {
+      case 'approved':
+        return { text: 'Diterima', bgColor: 'bg-green-600', textColor: 'text-white', disabled: true };
+      case 'rejected':
+        return { text: 'Ditolak', bgColor: 'bg-red-600', textColor: 'text-white', disabled: true };
+      default:
+        return { text: 'Verifikasi!', bgColor: '', textColor: '', disabled: false };
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
       {/* Header */}
@@ -52,15 +159,19 @@ const VerifikasiPage = () => {
             <div className="flex space-x-6 bg-gray-200 p-6 rounded-lg shadow-inner">
               <div className="text-center">
                 <div className="text-gray-600">Total Pegawai</div>
-                <div className="text-3xl font-bold text-black">400</div>
+                <div className="text-3xl font-bold text-black">{stats.total}</div>
               </div>
               <div className="text-center">
                 <div className="text-gray-600">Terverifikasi</div>
-                <div className="text-3xl font-bold text-green-600">200</div>
+                <div className="text-3xl font-bold text-green-600">{stats.approved}</div>
               </div>
               <div className="text-center">
                 <div className="text-gray-600">Menunggu</div>
-                <div className="text-3xl font-bold text-red-600">200</div>
+                <div className="text-3xl font-bold text-red-600">{stats.pending}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-gray-600">Ditolak</div>
+                <div className="text-3xl font-bold text-red-800">{stats.rejected}</div>
               </div>
             </div>
             <button className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-105">
@@ -94,92 +205,132 @@ const VerifikasiPage = () => {
                     </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
+                  {loading ? (
                     <tr>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">1</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Ahmad Susanto</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">196801011990031002</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">07:02:23</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFD600] text-[#000000]">
-                        Terverifikasi
-                        </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-green-600 text-white cursor-not-allowed" disabled>
-                          Diterima
-                        </button>
-                    </td>
+                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                        Loading...
+                      </td>
                     </tr>
+                  ) : attendanceRecords.length === 0 ? (
                     <tr>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Bambang Prasetyo</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">198003201998031003</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">07:28:12</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 text-gray-800">
-                        Menunggu
-                        </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="px-3 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl border-2 border-blue-300" onClick={handleVerifikasiClick}>
-                          <span className="flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                            Verifikasi!
-                          </span>
-                        </button>
-                    </td>
+                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                        No attendance records found
+                      </td>
                     </tr>
-                    <tr>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">3</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Siti Nurhaliza</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">197205152000032001</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">08:00:40</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFD600] text-[#000000]">
-                        Terverifikasi
-                        </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-green-600 text-white cursor-not-allowed" disabled>
-                          Diterima
-                        </button>
-                    </td>
-                    </tr>
-                    <tr>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">4</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Andi Setiawan</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">198801222012061028</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">08:45:15</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-200 text-red-800">
-                        Ditolak
-                        </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="px-2 py-1 text-xs font-semibold rounded-full bg-red-600 text-white cursor-not-allowed" disabled>
-                          Ditolak
-                        </button>
-                    </td>
-                    </tr>
+                  ) : (
+                    attendanceRecords.map((record, index) => {
+                      const ketepatanWaktu = getKetepatanWaktu(record.status);
+                      const verifiedStatus = getVerifiedStatus(record.verified_status);
+                      
+                      return (
+                        <tr key={record.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.nama}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.nip}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatTimestamp(record.timestamp)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ketepatanWaktu.bgColor} ${ketepatanWaktu.textColor}`}>
+                              {ketepatanWaktu.text}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {verifiedStatus.disabled ? (
+                              <button 
+                                className={`px-2 py-1 text-xs font-semibold rounded-full cursor-not-allowed ${verifiedStatus.bgColor} ${verifiedStatus.textColor}`} 
+                                disabled
+                              >
+                                {verifiedStatus.text}
+                              </button>
+                            ) : (
+                              <button 
+                                className="px-3 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl border-2 border-blue-300" 
+                                onClick={() => handleVerifikasiClick(record)}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                  {verifiedStatus.text}
+                                </span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
             </table>
           </div>
 
         {/* Dialog Modal */}
-        {showDialog && (
+        {showDialog && selectedRecord && (
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.75)' }}>
             <div className="bg-white rounded-lg shadow-xl p-10 w-full max-w-2xl relative">
               <button className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold" onClick={handleCloseDialog}>&times;</button>
               <h2 className="text-2xl font-bold mb-8 text-center">Verifikasi Pegawai</h2>
-              <div className="flex justify-center gap-8 mb-10">
-                <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">Foto 1</div>
-                <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">Foto 2</div>
+              
+              {/* Employee Info */}
+              <div className="mb-6 text-center">
+                <h3 className="text-lg font-semibold">{selectedRecord.nama}</h3>
+                <p className="text-gray-600">NIP: {selectedRecord.nip}</p>
+                <p className="text-gray-600">Waktu: {formatTimestamp(selectedRecord.timestamp)}</p>
               </div>
+              
+              <div className="flex justify-center gap-8 mb-10">
+                <div className="text-center">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Foto Absensi</h4>
+                  {selectedRecord.photo ? (
+                    <div className="w-56 h-56 bg-gray-200 rounded-lg overflow-hidden">
+                      <Image 
+                        src={selectedRecord.photo}
+                        alt="Attendance Photo"
+                        width={224}
+                        height={224}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">
+                      No Photo Available
+                    </div>
+                  )}
+                </div>
+                <div className="text-center">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Foto Profile</h4>
+                  {selectedRecord.employeePhoto ? (
+                    <div className="w-56 h-56 bg-gray-200 rounded-lg overflow-hidden">
+                      <Image 
+                        src={selectedRecord.employeePhoto}
+                        alt="Employee Profile Photo"
+                        width={224}
+                        height={224}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">
+                      No Profile Photo
+                    </div>
+                  )}
+                </div>
+              </div>
+              
               <div className="flex justify-center gap-6 mt-4">
-                <button className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 transition-all duration-200">Approve</button>
-                <button className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg shadow hover:bg-red-700 transition-all duration-200">Decline</button>
+                <button 
+                  className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 transition-all duration-200"
+                  onClick={handleApprove}
+                >
+                  Approve
+                </button>
+                <button 
+                  className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg shadow hover:bg-red-700 transition-all duration-200"
+                  onClick={handleReject}
+                >
+                  Decline
+                </button>
               </div>
             </div>
           </div>
