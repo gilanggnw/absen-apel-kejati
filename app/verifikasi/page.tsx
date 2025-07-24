@@ -131,14 +131,217 @@ const VerifikasiPage = () => {
   const handleDateChange = (date: Date | null) => {
     setSelectedDate(date);
   };
+
+  const handlePrintReport = () => {
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    // Get current date for report generation
+    const currentDate = new Date().toLocaleDateString('id-ID', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Determine report title based on selected date
+    const reportTitle = selectedDate 
+      ? `Laporan Verifikasi Absensi - ${selectedDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
+      : 'Laporan Verifikasi Absensi - Semua Data';
+
+    // Generate table rows
+    const tableRows = attendanceRecords.map((record, index) => {
+      const ketepatanWaktu = getKetepatanWaktu(record.status);
+      const verifiedStatus = getVerifiedStatus(record.verified_status);
+      
+      return `
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${index + 1}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${record.nama}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${record.nip}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${formatTimestamp(record.timestamp)}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+            <span style="padding: 4px 8px; background-color: ${ketepatanWaktu.text === 'Tepat Waktu' ? '#dcfce7' : '#fee2e2'}; color: ${ketepatanWaktu.text === 'Tepat Waktu' ? '#166534' : '#991b1b'}; border-radius: 9999px; font-size: 12px; font-weight: 600;">
+              ${ketepatanWaktu.text}
+            </span>
+          </td>
+          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+            <span style="padding: 4px 8px; background-color: ${
+              verifiedStatus.text === 'Diterima' ? '#16a34a' : 
+              verifiedStatus.text === 'Ditolak' ? '#dc2626' : '#6b7280'
+            }; color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">
+              ${verifiedStatus.text}
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Create the HTML content for printing
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${reportTitle}</title>
+          <style>
+            @media print {
+              @page {
+                margin: 1cm;
+                size: A4 landscape;
+              }
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 20px;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 24px;
+              font-weight: bold;
+            }
+            .header p {
+              margin: 5px 0;
+              font-size: 14px;
+              color: #666;
+            }
+            .stats {
+              display: flex;
+              justify-content: center;
+              gap: 40px;
+              margin-bottom: 30px;
+              padding: 20px;
+              background-color: #f5f5f5;
+              border-radius: 8px;
+            }
+            .stat-item {
+              text-align: center;
+            }
+            .stat-label {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 5px;
+            }
+            .stat-value {
+              font-size: 24px;
+              font-weight: bold;
+            }
+            .stat-total { color: #000; }
+            .stat-approved { color: #16a34a; }
+            .stat-pending { color: #dc2626; }
+            .stat-rejected { color: #991b1b; }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 30px;
+            }
+            th {
+              background-color: #f8f9fa;
+              padding: 12px 8px;
+              border: 1px solid #ddd;
+              font-weight: bold;
+              text-align: center;
+              font-size: 12px;
+            }
+            td {
+              font-size: 11px;
+            }
+            .footer {
+              margin-top: 40px;
+              text-align: right;
+              font-size: 12px;
+              color: #666;
+            }
+            .no-data {
+              text-align: center;
+              padding: 40px;
+              color: #666;
+              font-style: italic;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>KEJAKSAAN TINGGI JAWA TENGAH</h1>
+            <h2>${reportTitle}</h2>
+            <p>Dicetak pada: ${currentDate}</p>
+          </div>
+
+          <div class="stats">
+            <div class="stat-item">
+              <div class="stat-label">Total Pegawai</div>
+              <div class="stat-value stat-total">${stats.total}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Terverifikasi</div>
+              <div class="stat-value stat-approved">${stats.approved}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Menunggu</div>
+              <div class="stat-value stat-pending">${stats.pending}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Ditolak</div>
+              <div class="stat-value stat-rejected">${stats.rejected}</div>
+            </div>
+          </div>
+
+          ${attendanceRecords.length === 0 ? `
+            <div class="no-data">
+              Tidak ada data untuk ditampilkan
+            </div>
+          ` : `
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 5%;">No</th>
+                  <th style="width: 25%;">Nama Lengkap</th>
+                  <th style="width: 15%;">NIP</th>
+                  <th style="width: 15%;">Waktu Absen</th>
+                  <th style="width: 15%;">Ketepatan Waktu</th>
+                  <th style="width: 15%;">Status Verifikasi</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+          `}
+
+          <div class="footer">
+            <p>Laporan ini digenerate secara otomatis oleh Sistem Absensi Apel Kejati</p>
+            <p>Total Records: ${attendanceRecords.length}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Write content to print window and trigger print
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Wait for content to load then print
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
+  };
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
-      {/* Header */}
-      <Header
-        logoContent={
-          <h1 className="text-3xl font-bold text-black">Absen Apel</h1>
-        }
-      />
+      <Header />
       <div className="flex flex-1">
         {/* Sidebar */}
         <Sidebar />
@@ -156,7 +359,7 @@ const VerifikasiPage = () => {
                 selected={selectedDate}
                 onChange={handleDateChange}
                 dateFormat="dd MMMM yyyy"
-                className="block w-full rounded-md border border-gray-400 shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50 p-2 pr-16"
+                className="block w-full rounded-md border border-gray-400 shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50 p-2 pr-10"
                 placeholderText="Semua tanggal"
                 isClearable
                 filterDate={(date) => {
@@ -206,12 +409,15 @@ const VerifikasiPage = () => {
                   );
                 }}
               />
+
               {/* Arrow icon - positioned to avoid overlap with clear button */}
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
+              {!selectedDate && (
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                  <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              )}
             </div>
             {selectedDate && (
               <div className="ml-4 text-sm text-gray-600">
@@ -240,7 +446,13 @@ const VerifikasiPage = () => {
                 <div className="text-3xl font-bold text-red-800">{stats.rejected}</div>
               </div>
             </div>
-            <button className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-105">
+            <button 
+              className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
+              onClick={handlePrintReport}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
               Cetak Laporan
             </button>
           </div>

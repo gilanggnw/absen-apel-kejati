@@ -11,11 +11,7 @@ const AbsenApelPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
       {/* Header */}
-      <Header
-        logoContent={
-          <h1 className="text-3xl font-bold text-black">Absen Apel</h1>
-        }
-      />
+      <Header/>
       <div className="flex flex-1">
         {/* Sidebar */}
         <Sidebar />

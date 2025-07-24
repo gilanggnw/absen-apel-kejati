@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 
 // SVG Icon for the User Profile - Updated to be a filled icon
@@ -66,7 +67,18 @@ const Header = ({ logoContent }: HeaderProps) => {
         <div className="flex justify-between items-center h-20">
           {/* Logo/Title on the left */}
           <div className="flex-shrink-0">
-            {logoContent ? logoContent : <h1 className="text-2xl font-bold text-black">Absen Apel</h1>}
+            {logoContent ? logoContent : (
+              <div className="flex items-center space-x-3">
+                <Image
+                  src="/logo.png"
+                  alt="Logo"
+                  width={40}
+                  height={40}
+                  className="object-contain"
+                />
+                <h1 className="text-2xl font-bold text-black">Absen Apel</h1>
+              </div>
+            )}
           </div>
 
           {/* Welcome message and User controls on the right */}
