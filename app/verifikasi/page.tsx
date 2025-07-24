@@ -281,7 +281,7 @@ const VerifikasiPage = () => {
 
           <div class="stats">
             <div class="stat-item">
-              <div class="stat-label">Total Pegawai</div>
+              <div class="stat-label">Total Data</div>
               <div class="stat-value stat-total">${stats.total}</div>
             </div>
             <div class="stat-item">
@@ -430,7 +430,7 @@ const VerifikasiPage = () => {
           <div className="flex items-center justify-between mb-8">
             <div className="flex space-x-6 bg-gray-200 p-6 rounded-lg shadow-inner">
               <div className="text-center">
-                <div className="text-gray-600">Total Pegawai</div>
+                <div className="text-gray-600">Total Data</div>
                 <div className="text-3xl font-bold text-black">{stats.total}</div>
               </div>
               <div className="text-center">
