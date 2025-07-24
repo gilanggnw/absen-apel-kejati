@@ -5,23 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import NextImage from 'next/image';
 import { getEmployeeById, updateEmployee, type UpdateEmployeeData, type DatabaseEmployee } from '../../../actions';
 import Sidebar from '../../../../components/Sidebar';
-
-// --- Mock Components for Preview ---
-interface HeaderProps {
-    username: string;
-    logoContent: React.ReactNode;
-}
-
-const Header = ({ username, logoContent }: HeaderProps) => (
-    <header className="w-full bg-gray-200 shadow-md">
-        <div className="flex justify-between items-center h-20 px-6 lg:px-8">
-            <div>{logoContent}</div>
-            <div className="flex items-center space-x-4">
-                <span className="text-gray-800 font-medium">Welcome {username}</span>
-            </div>
-        </div>
-    </header>
-);
+import Header from '../../../../components/Header';
 
 // --- Main Edit Page Component ---
 const EditEmployeePage = () => {
@@ -157,10 +141,7 @@ const EditEmployeePage = () => {
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
-                <Header
-                    username="superadmin (Administrator)"
-                    logoContent={<h1 className="text-3xl font-bold text-black">Absen Apel</h1>}
-                />
+                <Header />
                 <div className="flex flex-1">
                     <Sidebar />
                     <main className="flex-1 p-8">
@@ -176,10 +157,7 @@ const EditEmployeePage = () => {
     if (!employee) {
         return (
             <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
-                <Header
-                    username="superadmin (Administrator)"
-                    logoContent={<h1 className="text-3xl font-bold text-black">Absen Apel</h1>}
-                />
+                <Header />
                 <div className="flex flex-1">
                     <Sidebar />
                     <main className="flex-1 p-8">
@@ -194,10 +172,7 @@ const EditEmployeePage = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
-            <Header
-                username="superadmin (Administrator)"
-                logoContent={<h1 className="text-3xl font-bold text-black">Absen Apel</h1>}
-            />
+            <Header />
             <div className="flex flex-1">
                 <Sidebar />
                 <main className="flex-1 p-8">
