@@ -20,6 +20,7 @@ const EditEmployeePage = () => {
         nama: '',
         jabatan: '',
         pangkat: '',
+        status: 'aktif',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [photoPreview, setPhotoPreview] = useState<string>('');
@@ -40,6 +41,7 @@ const EditEmployeePage = () => {
                             nama: data.nama,
                             jabatan: data.jabatan || '',
                             pangkat: data.pangkat || '',
+                            status: data.status || 'aktif',
                         });
                         // Set photo preview if exists
                         if (data.foto) {
@@ -310,6 +312,24 @@ const EditEmployeePage = () => {
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-black placeholder:text-gray-400"
                                         placeholder="Masukkan pangkat"
                                     />
+                                </div>
+
+                                {/* Status */}
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2 text-gray-700">
+                                        Status Pegawai
+                                    </label>
+                                    <select
+                                        value={formData.status}
+                                        onChange={(e) => handleInputChange('status', e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-black bg-white"
+                                    >
+                                        <option value="aktif">Aktif</option>
+                                        <option value="non-aktif">Non-Aktif</option>
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Status aktif/non-aktif menentukan apakah pegawai dapat melakukan absensi
+                                    </p>
                                 </div>
 
                                 {/* Action Buttons */}

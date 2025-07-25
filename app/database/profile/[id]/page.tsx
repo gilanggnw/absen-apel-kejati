@@ -55,9 +55,9 @@ const EmployeeInfo = ({ employee }: { employee: Employee }) => (
                 <span className="text-black">{employee.pangkat || '-'}</span>
                 <span className="font-semibold text-gray-700">Status:</span>
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    employee.status === 'Aktif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    employee.status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                 }`}>
-                    {employee.status}
+                    {employee.status === 'aktif' ? 'Aktif' : 'Non-Aktif'}
                 </span>
             </div>
         </div>
@@ -132,7 +132,7 @@ const ProfilePage = () => {
                             nip: data.nip,
                             jabatan: data.jabatan,
                             pangkat: data.pangkat,
-                            status: 'Aktif', // Default status, you can add this to your schema later
+                            status: data.status || 'aktif', // Use actual status from database
                             imageUrl: data.foto || undefined,
                         });
                     }

@@ -48,7 +48,7 @@ const DatabasePage = () => {
           nama: item.nama,
           nip: item.nip,
           jabatan: item.jabatan ?? '',
-          status: 'Aktif', // or set based on your logic
+          status: (item.status === 'aktif' ? 'Aktif' : 'Tidak Aktif') as 'Aktif' | 'Tidak Aktif',
         }))
       );
     }

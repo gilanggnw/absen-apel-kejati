@@ -11,6 +11,7 @@ export type DatabaseEmployee = {
   jabatan: string | null;
   pangkat: string | null;
   foto: string | null; // Changed from unknown to string (base64)
+  status: string; // Add status field
 };
 
 export async function getEmployees(): Promise<DatabaseEmployee[]> {
@@ -19,7 +20,8 @@ export async function getEmployees(): Promise<DatabaseEmployee[]> {
     // Convert binary foto to base64 string
     return employees.map(employee => ({
       ...employee,
-      foto: employee.foto ? `data:image/jpeg;base64,${Buffer.from(employee.foto as Uint8Array).toString('base64')}` : null
+      foto: employee.foto ? `data:image/jpeg;base64,${Buffer.from(employee.foto as Uint8Array).toString('base64')}` : null,
+      status: employee.status || 'aktif' // Ensure status has a default value
     }));
   } catch (error) {
     console.error('Failed to fetch employees:', error);
@@ -33,7 +35,8 @@ export async function getEmployeeById(id: number): Promise<DatabaseEmployee | nu
     if (employees[0]) {
       return {
         ...employees[0],
-        foto: employees[0].foto ? `data:image/jpeg;base64,${Buffer.from(employees[0].foto as Uint8Array).toString('base64')}` : null
+        foto: employees[0].foto ? `data:image/jpeg;base64,${Buffer.from(employees[0].foto as Uint8Array).toString('base64')}` : null,
+        status: employees[0].status || 'aktif' // Ensure status has a default value
       };
     }
     return null;
@@ -48,6 +51,7 @@ export type UpdateEmployeeData = {
   jabatan?: string;
   pangkat?: string;
   foto?: string | null; // base64 string or null
+  status?: string; // Add status field
 };
 
 export async function updateEmployee(id: number, data: UpdateEmployeeData): Promise<boolean> {
@@ -65,11 +69,13 @@ export async function updateEmployee(id: number, data: UpdateEmployeeData): Prom
       nama: string;
       jabatan: string | null;
       pangkat: string | null;
+      status: string;
       foto?: Buffer | null;
     } = {
       nama: data.nama,
       jabatan: data.jabatan || null,
       pangkat: data.pangkat || null,
+      status: data.status || 'aktif',
     };
 
     // Only update photo if it's explicitly provided (including null for deletion)

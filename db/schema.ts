@@ -65,7 +65,8 @@ export const employeesTable = sqliteTable("employees", {
   nama: text().notNull(),
   foto: blob(),
   jabatan: text(),
-  pangkat: text()
+  pangkat: text(),
+  status: text().notNull().default("aktif") // Add status field
 });
 
 export const attendanceTable = sqliteTable("attendance", {

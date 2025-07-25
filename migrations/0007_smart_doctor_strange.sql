@@ -1,0 +1,1 @@
+ALTER TABLE `employees` ADD `status` text DEFAULT 'aktif' NOT NULL;

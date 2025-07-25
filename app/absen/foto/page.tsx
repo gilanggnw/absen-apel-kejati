@@ -46,7 +46,8 @@ function FotoPageContent() {
               nama: decodeURIComponent(nama),
               jabatan: null,
               pangkat: null,
-              foto: null
+              foto: null,
+              status: ''
             });
           }
         } catch (error) {
@@ -59,7 +60,8 @@ function FotoPageContent() {
               nama: decodeURIComponent(nama),
               jabatan: null,
               pangkat: null,
-              foto: null
+              foto: null,
+              status: ''
             });
           }
         }
