@@ -25,6 +25,45 @@ const SearchIcon = () => (
   </svg>
 );
 
+// SVG Icon for the Info/Help Button
+const InfoIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="h-5 w-5"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+    <path d="M12 17h.01" />
+  </svg>
+);
+
+// SVG Icon for Close Button
+const CloseIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="h-6 w-6"
+  >
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
 // Main App Component
 export default function Page() {
   const router = useRouter();
@@ -36,6 +75,8 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(false);
   // State to track if search has been performed
   const [hasSearched, setHasSearched] = useState(false);
+  // State to control the how-to modal
+  const [showHowToModal, setShowHowToModal] = useState(false);
 
   // Function to perform search
   const performSearch = async (searchTerm: string) => {
@@ -94,6 +135,16 @@ export default function Page() {
     <div className="bg-gray-50 min-h-screen font-sans">
       {/* Header Section */}
       <Header />
+
+      {/* How to Use Button - Fixed position bottom right */}
+      <button
+        onClick={() => setShowHowToModal(true)}
+        className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg shadow-lg transition duration-300 flex items-center gap-2 z-20 m-4"
+        aria-label="Cara Penggunaan"
+      >
+        <InfoIcon />
+        <span className="text-sm font-medium">Cara Penggunaan</span>
+      </button>
 
       {/* Main Content Area */}
       <main className="flex flex-col items-center justify-center w-full" style={{ height: 'calc(100vh - 64px)' }}>
@@ -172,6 +223,89 @@ export default function Page() {
           </div>
         </div>
       </main>
+
+      {/* How to Use Modal */}
+      {showHowToModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800">Cara Penggunaan Absen Apel</h2>
+              <button
+                onClick={() => setShowHowToModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition duration-200"
+                aria-label="Close modal"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-[#22B573] text-white rounded-full flex items-center justify-center text-sm font-bold">
+                    1
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-800 mb-1">Cari Pegawai</h3>
+                    <p className="text-gray-600 text-sm">Ketik nama atau NIP pegawai di kolom pencarian. Sistem akan menampilkan hasil secara otomatis.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-[#22B573] text-white rounded-full flex items-center justify-center text-sm font-bold">
+                    2
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-800 mb-1">Pilih Pegawai</h3>
+                    <p className="text-gray-600 text-sm">Klik pada nama pegawai yang sesuai dari daftar hasil pencarian.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-[#22B573] text-white rounded-full flex items-center justify-center text-sm font-bold">
+                    3
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-800 mb-1">Ambil Foto</h3>
+                    <p className="text-gray-600 text-sm">Sistem akan mengarahkan ke halaman kamera untuk mengambil foto kehadiran.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-[#22B573] text-white rounded-full flex items-center justify-center text-sm font-bold">
+                    4
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-800 mb-1">Konfirmasi Absen</h3>
+                    <p className="text-gray-600 text-sm">Pastikan foto sudah sesuai, lalu konfirmasi untuk menyelesaikan proses absen.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-2">💡 Tips:</h4>
+                <ul className="text-blue-700 text-sm space-y-1">
+                  <li>• Pastikan koneksi internet stabil</li>
+                  <li>• Gunakan nama lengkap atau NIP yang tepat</li>
+                  <li>• Foto harus jelas dan terlihat wajah</li>
+                </ul>
+              </div>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowHowToModal(false)}
+                className="w-full bg-[#22B573] hover:bg-[#1a9e5f] text-white px-4 py-2 rounded-lg transition duration-300 font-medium"
+              >
+                Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
