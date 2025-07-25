@@ -2,7 +2,7 @@
 
 import { db } from '../../db';
 import { employeesTable, attendanceTable } from '../../db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and, gte, lte, SQL } from 'drizzle-orm';
 
 export type DatabaseEmployee = {
   id: number;
@@ -295,6 +295,72 @@ export async function saveAttendance(data: AttendanceData): Promise<boolean> {
       }
     });
     return false;
+  }
+}
+
+export type AttendanceHistoryRecord = {
+  id: number;
+  timestamp: number;
+  status: string;
+  verified_status: string;
+  verified_by: string | null;
+  photo: string | null; // Base64 string
+  date: string; // Formatted date string
+  time: string; // Formatted time string
+};
+
+export async function getAttendanceHistoryByNip(nip: string, startDate?: Date, endDate?: Date): Promise<AttendanceHistoryRecord[]> {
+  try {
+    console.log('📅 Fetching attendance history for NIP:', nip);
+    
+    // Build the query with all conditions
+    let whereConditions: SQL | undefined = eq(attendanceTable.nip, nip);
+
+    // Apply date filtering if provided
+    if (startDate && endDate) {
+      const startOfDay = new Date(startDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      whereConditions = and(
+        whereConditions,
+        gte(attendanceTable.timestamp, startOfDay.getTime()),
+        lte(attendanceTable.timestamp, endOfDay.getTime())
+      );
+    }
+
+    const records = await db
+      .select()
+      .from(attendanceTable)
+      .where(whereConditions)
+      .orderBy(sql`${attendanceTable.timestamp} DESC`);
+
+    // Format the records for display
+    return records.map(record => {
+      const date = new Date(record.timestamp);
+      return {
+        id: record.id,
+        timestamp: record.timestamp,
+        status: record.status,
+        verified_status: record.verified_status || 'pending',
+        verified_by: record.verified_by,
+        photo: record.photo ? `data:image/jpeg;base64,${Buffer.from(record.photo as Uint8Array).toString('base64')}` : null,
+        date: date.toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric'
+        }),
+        time: date.toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        })
+      };
+    });
+  } catch (error) {
+    console.error('❌ Failed to fetch attendance history:', error);
+    return [];
   }
 }
 

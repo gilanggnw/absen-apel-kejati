@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import NextImage from 'next/image';
-import { getEmployeeById } from '../../actions';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { getEmployeeById, getAttendanceHistoryByNip, type AttendanceHistoryRecord } from '../../actions';
 import Sidebar from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 
@@ -73,37 +75,56 @@ const EmployeeInfo = ({ employee }: { employee: Employee }) => (
 );
 
 // Attendance Table
-interface AttendanceRecord {
-    date: string;
-    status: string;
-    photoAndTime: string;
-}
-
-const AttendanceTable = ({ records }: { records: AttendanceRecord[] }) => (
+const AttendanceTable = ({ records, loading }: { records: AttendanceHistoryRecord[], loading: boolean }) => (
     <div className="bg-white p-6 rounded-xl shadow-lg border">
         <h2 className="text-lg font-bold mb-4">Riwayat Kehadiran</h2>
-        <div className="hidden md:grid grid-cols-3 gap-4 text-center font-semibold text-gray-700 mb-4">
+        <div className="hidden md:grid grid-cols-4 gap-4 text-center font-semibold text-gray-700 mb-4">
             <div>Tanggal</div>
+            <div>Waktu</div>
             <div>Status Kehadiran</div>
-            <div>Foto dan Jam</div>
+            <div>Status Verifikasi</div>
         </div>
         <div className="space-y-4">
-            {records.map((record, index) => (
-                <div
-                    key={index}
-                    className={`grid grid-cols-3 gap-4 text-center items-center rounded-lg ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100 transition`}
-                >
-                    <div className="text-black py-2">{record.date}</div>
-                    <div className="py-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold
-                            ${record.status.includes('Hadir') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
-                        >
-                            {record.status}
-                        </span>
-                    </div>
-                    <div className="text-black py-2">{record.photoAndTime}</div>
+            {loading ? (
+                <div className="text-center py-8 text-gray-500">
+                    Memuat riwayat kehadiran...
                 </div>
-            ))}
+            ) : records.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                    Belum ada riwayat kehadiran untuk bulan yang dipilih
+                </div>
+            ) : (
+                records.map((record, index) => (
+                    <div
+                        key={record.id}
+                        className={`grid grid-cols-4 gap-4 text-center items-center rounded-lg py-3 px-2 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100 transition`}
+                    >
+                        <div className="text-black">{record.date}</div>
+                        <div className="text-black">{record.time}</div>
+                        <div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                record.status.toLowerCase().includes('hadir') 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                            }`}>
+                                {record.status}
+                            </span>
+                        </div>
+                        <div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                record.verified_status === 'approved' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : record.verified_status === 'rejected'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                                {record.verified_status === 'approved' ? 'Disetujui' : 
+                                 record.verified_status === 'rejected' ? 'Ditolak' : 'Menunggu'}
+                            </span>
+                        </div>
+                    </div>
+                ))
+            )}
         </div>
     </div>
 );
@@ -117,6 +138,8 @@ const ProfilePage = () => {
     const [employee, setEmployee] = useState<Employee | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date(2025, 6));
+    const [attendanceRecords, setAttendanceRecords] = useState<AttendanceHistoryRecord[]>([]);
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
 
     // Fetch employee data
     useEffect(() => {
@@ -146,30 +169,34 @@ const ProfilePage = () => {
         fetchEmployee();
     }, [employeeId]);
 
-    const attendanceData = [
-        { date: '7 Juli 2025', status: 'Hadir', photoAndTime: 'foto (07:09)' },
-        { date: '14 Juli 2025', status: 'Absen', photoAndTime: 'blank' },
-        { date: '21 Juli 2025', status: 'Hadir (telat)', photoAndTime: 'foto (07:50)' },
-    ];
+    // Fetch attendance data based on selected month
+    const fetchAttendanceData = React.useCallback(async () => {
+        if (!employee?.nip) return;
 
-    // Helper function to format a Date object into "YYYY-MM" string for the input
-    const formatDateForInput = (date: Date | null): string => {
-        if (!date) return '';
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        return `${year}-${month}`;
-    };
+        setAttendanceLoading(true);
+        try {
+            let startDate, endDate;
+            
+            if (selectedMonth) {
+                // Get start and end of the selected month
+                startDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
+                endDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
+            }
 
-    // Helper function to handle the change from the month input
-    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value; // Format: "YYYY-MM"
-        if (value) {
-            // We add '-02' to ensure parsing creates a date in the correct month, avoiding timezone issues.
-            setSelectedMonth(new Date(value + '-02T00:00:00'));
-        } else {
-            setSelectedMonth(null);
+            const records = await getAttendanceHistoryByNip(employee.nip, startDate, endDate);
+            setAttendanceRecords(records);
+        } catch (error) {
+            console.error('Failed to fetch attendance data:', error);
+            setAttendanceRecords([]);
+        } finally {
+            setAttendanceLoading(false);
         }
-    };
+    }, [employee?.nip, selectedMonth]);
+
+    // Fetch attendance data when employee or selected month changes
+    useEffect(() => {
+        fetchAttendanceData();
+    }, [fetchAttendanceData]);
 
     if (loading) {
         return (
@@ -230,18 +257,24 @@ const ProfilePage = () => {
                                 Pilih Bulan & Tahun:
                             </label>
                             <div className="relative w-44">
-                                <input
-                                    type="month"
-                                    value={formatDateForInput(selectedMonth)}
-                                    onChange={handleDateChange}
+                                <DatePicker
+                                    selected={selectedMonth}
+                                    onChange={(date: Date | null) => setSelectedMonth(date)}
+                                    dateFormat="MMMM yyyy"
+                                    showMonthYearPicker
+                                    showYearDropdown
+                                    yearDropdownItemNumber={5}
+                                    scrollableYearDropdown
                                     className="block w-full rounded-md border-gray-300 shadow-sm p-2 font-semibold text-gray-800 focus:ring-yellow-400 focus:border-yellow-400 cursor-pointer bg-gray-50 hover:bg-yellow-50 transition"
+                                    placeholderText="Pilih bulan & tahun"
+                                    isClearable
                                 />
                             </div>
                         </div>
                     </div>
 
                     <EmployeeInfo employee={employee} />
-                    <AttendanceTable records={attendanceData} />
+                    <AttendanceTable records={attendanceRecords} loading={attendanceLoading} />
                 </main>
             </div>
         </div>
