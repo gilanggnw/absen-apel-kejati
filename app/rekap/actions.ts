@@ -20,8 +20,14 @@ export interface RekapStats {
   late: number;
 }
 
-export async function getAttendanceForRekap(selectedDate?: Date): Promise<RekapAttendanceRecord[]> {
+export async function getAttendanceForRekap(
+  selectedDate?: Date, 
+  page: number = 1, 
+  limit: number = 10
+): Promise<{ records: RekapAttendanceRecord[], total: number }> {
   try {
+    const offset = (page - 1) * limit;
+
     // Build base query
     const baseQuery = db
       .select({
@@ -34,35 +40,57 @@ export async function getAttendanceForRekap(selectedDate?: Date): Promise<RekapA
       .from(attendanceTable)
       .innerJoin(employeesTable, eq(attendanceTable.nip, employeesTable.nip));
 
-    // Execute query with or without date filter
-    let records;
+    // Build count query
+    const countQuery = db
+      .select({ count: count() })
+      .from(attendanceTable)
+      .innerJoin(employeesTable, eq(attendanceTable.nip, employeesTable.nip));
+
+    // Execute queries with or without date filter
+    let records, totalResult;
     if (selectedDate) {
       const startOfDay = new Date(selectedDate);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(selectedDate);
       endOfDay.setHours(23, 59, 59, 999);
 
-      records = await baseQuery
-        .where(
-          and(
-            gte(attendanceTable.timestamp, startOfDay.getTime()),
-            lte(attendanceTable.timestamp, endOfDay.getTime())
-          )
-        )
-        .orderBy(desc(attendanceTable.timestamp));
+      const dateFilter = and(
+        gte(attendanceTable.timestamp, startOfDay.getTime()),
+        lte(attendanceTable.timestamp, endOfDay.getTime())
+      );
+
+      [records, totalResult] = await Promise.all([
+        baseQuery
+          .where(dateFilter)
+          .orderBy(desc(attendanceTable.timestamp))
+          .limit(limit)
+          .offset(offset),
+        countQuery.where(dateFilter)
+      ]);
     } else {
-      records = await baseQuery.orderBy(desc(attendanceTable.timestamp));
+      [records, totalResult] = await Promise.all([
+        baseQuery
+          .orderBy(desc(attendanceTable.timestamp))
+          .limit(limit)
+          .offset(offset),
+        countQuery
+      ]);
     }
 
-    return records.map(record => ({
-      ...record,
-      nip: record.nip || '',
-      nama: record.nama || '',
-      status: record.status || '',
-    }));
+    const total = totalResult[0]?.count || 0;
+
+    return {
+      records: records.map(record => ({
+        ...record,
+        nip: record.nip || '',
+        nama: record.nama || '',
+        status: record.status || '',
+      })),
+      total
+    };
   } catch (error) {
     console.error('Error fetching attendance records for rekap:', error);
-    return [];
+    return { records: [], total: 0 };
   }
 }
 
