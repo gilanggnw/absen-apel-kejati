@@ -1,10 +1,28 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import Header from '../components/Header';
 import { useRouter } from 'next/navigation';
 import { searchEmployees, type DatabaseEmployee } from '../database/actions';
+
+// Custom hook for debounced value
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 // SVG Icon for the Search Button
 const SearchIcon = () => (
@@ -69,44 +87,31 @@ export default function Page() {
   const router = useRouter();
   // State to hold the search input value
   const [searchValue, setSearchValue] = useState('');
-  // State to hold search results
-  const [searchResults, setSearchResults] = useState<DatabaseEmployee[]>([]);
-  // State to control loading
-  const [isLoading, setIsLoading] = useState(false);
-  // State to track if search has been performed
-  const [hasSearched, setHasSearched] = useState(false);
   // State to control the how-to modal
   const [showHowToModal, setShowHowToModal] = useState(false);
+  // State for keyboard navigation
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
-  // Function to perform search
-  const performSearch = async (searchTerm: string) => {
-    if (!searchTerm.trim()) {
-      setSearchResults([]);
-      setHasSearched(false);
-      return;
-    }
+  // Debounce search value with shorter delay for better responsiveness
+  const debouncedSearchValue = useDebounce(searchValue, 200);
 
-    setIsLoading(true);
-    try {
-      const results = await searchEmployees(searchTerm);
-      setSearchResults(results);
-      setHasSearched(true);
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // React Query for search results with optimizations
+  const { 
+    data: searchResults = [], 
+    isLoading,
+    isFetching
+  } = useQuery({
+    queryKey: ['employee-search', debouncedSearchValue],
+    queryFn: () => searchEmployees(debouncedSearchValue),
+    enabled: !!debouncedSearchValue.trim() && debouncedSearchValue.trim().length >= 2, // Only search with 2+ characters
+    staleTime: 5 * 60 * 1000, // 5 minutes - keep data fresh longer
+    gcTime: 10 * 60 * 1000, // 10 minutes - cache longer
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    retry: 1, // Only retry once on failure
+  });
 
-  // Debounced search effect
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      performSearch(searchValue);
-    }, 300); // 300ms delay
-
-    return () => clearTimeout(timeoutId);
-  }, [searchValue]);
+  // Track if search has been performed
+  const hasSearched = !!debouncedSearchValue.trim();
 
   const handleSearch = () => {
     if (searchResults.length === 1) {
@@ -127,9 +132,33 @@ export default function Page() {
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
-      handleSearch();
+      if (selectedIndex >= 0 && searchResults[selectedIndex]) {
+        // Navigate to selected item
+        handleEmployeeSelect(searchResults[selectedIndex]);
+      } else {
+        // Use default search behavior
+        handleSearch();
+      }
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setSelectedIndex(prev => 
+        prev < searchResults.length - 1 ? prev + 1 : 0
+      );
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setSelectedIndex(prev => 
+        prev > 0 ? prev - 1 : searchResults.length - 1
+      );
+    } else if (event.key === 'Escape') {
+      setSelectedIndex(-1);
+      setSearchValue('');
     }
   };
+
+  // Reset selected index when search results change
+  React.useEffect(() => {
+    setSelectedIndex(-1);
+  }, [searchResults]);
 
   return (
     <div className="bg-gray-50 min-h-screen font-sans">
@@ -161,17 +190,19 @@ export default function Page() {
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Masukkan nama/nip pegawai..."
+                  placeholder="Cari dengan nama atau NIP (min. 2 karakter)..."
                   className="w-full px-6 py-4 text-lg text-gray-700 bg-white border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300"
                   aria-label="Search by employee name or ID"
+                  autoComplete="off"
+                  spellCheck="false"
               />
               <button
                   onClick={handleSearch}
-                  disabled={isLoading}
+                  disabled={isLoading || isFetching}
                   className="px-5 py-4 bg-[#22B573] border border-l-0 border-[#22B573] rounded-r-lg hover:bg-[#1a9e5f] focus:outline-none focus:ring-2 focus:ring-[#22B573] transition duration-300 disabled:opacity-50"
                   aria-label="Search"
               >
-                  {isLoading ? (
+                  {isLoading || isFetching ? (
                     <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full"></div>
                   ) : (
                     <SearchIcon />
@@ -182,16 +213,25 @@ export default function Page() {
             {/* Search Results Dropdown */}
             {searchValue && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
-                {isLoading ? (
+                {searchValue.trim().length < 2 ? (
                   <div className="px-6 py-4 text-center text-gray-500">
+                    Masukkan minimal 2 karakter untuk mencari...
+                  </div>
+                ) : isLoading || isFetching ? (
+                  <div className="px-6 py-4 text-center text-gray-500 flex items-center justify-center gap-2">
+                    <div className="animate-spin h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full"></div>
                     Mencari pegawai...
                   </div>
                 ) : searchResults.length > 0 ? (
-                  searchResults.map((employee) => (
+                  searchResults.map((employee, index) => (
                     <div
                       key={employee.id}
                       onClick={() => handleEmployeeSelect(employee)}
-                      className="px-6 py-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0 transition duration-200 text-left"
+                      className={`px-6 py-3 cursor-pointer border-b last:border-b-0 transition duration-200 text-left ${
+                        index === selectedIndex 
+                          ? 'bg-blue-50 border-blue-200' 
+                          : 'hover:bg-gray-100'
+                      }`}
                     >
                       <div className="flex justify-between items-center">
                         <div className="text-left">

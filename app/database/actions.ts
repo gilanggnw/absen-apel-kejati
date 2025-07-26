@@ -204,23 +204,43 @@ export async function addEmployee(data: {
 
 export async function searchEmployees(searchTerm: string): Promise<DatabaseEmployee[]> {
   try {
-    if (!searchTerm.trim()) {
+    if (!searchTerm.trim() || searchTerm.trim().length < 2) {
       return [];
     }
 
+    const cleanTerm = searchTerm.trim().toLowerCase();
+    
     const employees = await db
-      .select()
+      .select({
+        id: employeesTable.id,
+        nama: employeesTable.nama,
+        nip: employeesTable.nip,
+        jabatan: employeesTable.jabatan,
+        pangkat: employeesTable.pangkat,
+        foto: employeesTable.foto,
+        status: employeesTable.status
+      })
       .from(employeesTable)
       .where(
-        // Search by nama (case insensitive) or nip starting with the search term
-        sql`LOWER(${employeesTable.nama}) LIKE LOWER(${searchTerm + '%'}) OR ${employeesTable.nip} LIKE ${searchTerm + '%'}`
+        // Optimized search: exact NIP match first, then name contains
+        sql`${employeesTable.nip} LIKE ${cleanTerm + '%'} OR LOWER(${employeesTable.nama}) LIKE ${'%' + cleanTerm + '%'}`
       )
-      .limit(10); // Limit results for performance
+      .orderBy(
+        // Prioritize exact NIP matches, then exact name matches, then partial matches
+        sql`CASE 
+          WHEN ${employeesTable.nip} = ${cleanTerm} THEN 1
+          WHEN ${employeesTable.nip} LIKE ${cleanTerm + '%'} THEN 2
+          WHEN LOWER(${employeesTable.nama}) LIKE ${cleanTerm + '%'} THEN 3
+          ELSE 4
+        END`
+      )
+      .limit(8); // Reduced limit for faster results
 
     // Convert binary foto to base64 string
     return employees.map(employee => ({
       ...employee,
-      foto: employee.foto ? `data:image/jpeg;base64,${Buffer.from(employee.foto as Uint8Array).toString('base64')}` : null
+      foto: employee.foto ? `data:image/jpeg;base64,${Buffer.from(employee.foto as Uint8Array).toString('base64')}` : null,
+      status: employee.status || 'aktif'
     }));
   } catch (error) {
     console.error('Failed to search employees:', error);
