@@ -1,13 +1,52 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import NextImage from 'next/image';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useQuery } from '@tanstack/react-query';
 import { getEmployeeById, getAttendanceHistoryByNip, type AttendanceHistoryRecord } from '../../actions';
 import Sidebar from '../../../components/Sidebar';
 import Header from '../../../components/Header';
+
+// Loading skeleton components
+const EmployeeInfoSkeleton = () => (
+    <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-lg border mb-8 gap-6 animate-pulse">
+        <div className="w-full md:w-auto">
+            <div className="h-6 bg-gray-300 rounded w-32 mb-4"></div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                <div className="h-4 bg-gray-300 rounded w-24"></div>
+                <div className="h-4 bg-gray-300 rounded w-32"></div>
+                <div className="h-4 bg-gray-300 rounded w-16"></div>
+                <div className="h-4 bg-gray-300 rounded w-20"></div>
+                <div className="h-4 bg-gray-300 rounded w-20"></div>
+                <div className="h-4 bg-gray-300 rounded w-24"></div>
+                <div className="h-4 bg-gray-300 rounded w-18"></div>
+                <div className="h-4 bg-gray-300 rounded w-16"></div>
+            </div>
+        </div>
+        <div className="w-32 h-32 bg-gray-300 rounded-lg"></div>
+    </div>
+);
+
+const AttendanceTableSkeleton = () => (
+    <div className="bg-white rounded-xl shadow-lg border animate-pulse">
+        <div className="p-6">
+            <div className="h-6 bg-gray-300 rounded w-40 mb-4"></div>
+            <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex space-x-4">
+                        <div className="h-4 bg-gray-300 rounded w-20"></div>
+                        <div className="h-4 bg-gray-300 rounded w-24"></div>
+                        <div className="h-4 bg-gray-300 rounded w-16"></div>
+                        <div className="h-4 bg-gray-300 rounded w-28"></div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+);
 
 interface ImageProps {
     src: string;
@@ -75,9 +114,18 @@ const EmployeeInfo = ({ employee }: { employee: Employee }) => (
 );
 
 // Attendance Table
-const AttendanceTable = ({ records, loading }: { records: AttendanceHistoryRecord[], loading: boolean }) => (
+const AttendanceTable = ({ records, loading, selectedMonth }: { 
+    records: AttendanceHistoryRecord[], 
+    loading: boolean,
+    selectedMonth: Date | null 
+}) => (
     <div className="bg-white p-6 rounded-xl shadow-lg border">
         <h2 className="text-lg font-bold mb-4">Riwayat Kehadiran</h2>
+        {selectedMonth && (
+            <p className="text-sm text-gray-600 mb-4">
+                Menampilkan data untuk: {selectedMonth.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+            </p>
+        )}
         <div className="hidden md:grid grid-cols-4 gap-4 text-center font-semibold text-gray-700 mb-4">
             <div>Tanggal</div>
             <div>Waktu</div>
@@ -86,8 +134,15 @@ const AttendanceTable = ({ records, loading }: { records: AttendanceHistoryRecor
         </div>
         <div className="space-y-4">
             {loading ? (
-                <div className="text-center py-8 text-gray-500">
-                    Memuat riwayat kehadiran...
+                <div className="space-y-3">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="grid grid-cols-4 gap-4 text-center items-center rounded-lg py-3 px-2 bg-gray-50 animate-pulse">
+                            <div className="h-4 bg-gray-300 rounded mx-auto w-20"></div>
+                            <div className="h-4 bg-gray-300 rounded mx-auto w-16"></div>
+                            <div className="h-6 bg-gray-300 rounded-full mx-auto w-24"></div>
+                            <div className="h-6 bg-gray-300 rounded-full mx-auto w-20"></div>
+                        </div>
+                    ))}
                 </div>
             ) : records.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
@@ -135,68 +190,59 @@ const ProfilePage = () => {
     const params = useParams();
     const employeeId = params.id as string;
     
-    const [employee, setEmployee] = useState<Employee | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date(2025, 6));
-    const [attendanceRecords, setAttendanceRecords] = useState<AttendanceHistoryRecord[]>([]);
-    const [attendanceLoading, setAttendanceLoading] = useState(false);
+    const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date(2025, 6)); // July 2025
 
-    // Fetch employee data
-    useEffect(() => {
-        const fetchEmployee = async () => {
-            if (employeeId) {
-                setLoading(true);
-                try {
-                    const data = await getEmployeeById(parseInt(employeeId));
-                    if (data) {
-                        setEmployee({
-                            id: data.id,
-                            nama: data.nama,
-                            nip: data.nip,
-                            jabatan: data.jabatan,
-                            pangkat: data.pangkat,
-                            status: data.status || 'aktif', // Use actual status from database
-                            imageUrl: data.foto || undefined,
-                        });
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch employee:', error);
-                } finally {
-                    setLoading(false);
-                }
-            }
-        };
-        fetchEmployee();
-    }, [employeeId]);
-
-    // Fetch attendance data based on selected month
-    const fetchAttendanceData = React.useCallback(async () => {
-        if (!employee?.nip) return;
-
-        setAttendanceLoading(true);
-        try {
-            let startDate, endDate;
+    // React Query for employee data
+    const { 
+        data: employee, 
+        isLoading: loading 
+    } = useQuery({
+        queryKey: ['employee', employeeId],
+        queryFn: async () => {
+            if (!employeeId) return null;
+            const data = await getEmployeeById(parseInt(employeeId));
+            if (!data) return null;
             
-            if (selectedMonth) {
-                // Get start and end of the selected month
-                startDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
-                endDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
+            return {
+                id: data.id,
+                nama: data.nama,
+                nip: data.nip,
+                jabatan: data.jabatan,
+                pangkat: data.pangkat,
+                status: data.status || 'aktif',
+                imageUrl: data.foto || undefined,
+            };
+        },
+        enabled: !!employeeId,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        gcTime: 10 * 60 * 1000, // 10 minutes
+    });
+
+    console.log('Profile page state:', { employeeId, selectedMonth, employee: !!employee });
+
+    // React Query for attendance data
+    const { 
+        data: attendanceRecords = [], 
+        isLoading: attendanceLoading 
+    } = useQuery({
+        queryKey: ['attendanceHistory', employee?.nip, selectedMonth?.getMonth(), selectedMonth?.getFullYear()],
+        queryFn: () => {
+            if (!employee?.nip || !selectedMonth) {
+                console.log('Attendance query skipped - missing nip or selectedMonth', { nip: employee?.nip, selectedMonth });
+                return [];
             }
-
-            const records = await getAttendanceHistoryByNip(employee.nip, startDate, endDate);
-            setAttendanceRecords(records);
-        } catch (error) {
-            console.error('Failed to fetch attendance data:', error);
-            setAttendanceRecords([]);
-        } finally {
-            setAttendanceLoading(false);
-        }
-    }, [employee?.nip, selectedMonth]);
-
-    // Fetch attendance data when employee or selected month changes
-    useEffect(() => {
-        fetchAttendanceData();
-    }, [fetchAttendanceData]);
+            
+            // Calculate start and end dates for the selected month
+            const startDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
+            const endDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
+            
+            console.log('Fetching attendance for:', { nip: employee.nip, startDate, endDate });
+            return getAttendanceHistoryByNip(employee.nip, startDate, endDate);
+        },
+        enabled: !!employee?.nip && !!selectedMonth,
+        staleTime: 3 * 60 * 1000, // 3 minutes
+        gcTime: 5 * 60 * 1000, // 5 minutes
+    });
 
     if (loading) {
         return (
@@ -205,9 +251,16 @@ const ProfilePage = () => {
                 <div className="flex flex-1">
                     <Sidebar />
                     <main className="flex-1 p-8">
-                        <div className="flex justify-center items-center h-64">
-                            <div className="text-xl text-gray-600">Loading...</div>
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="h-10 bg-gray-300 rounded w-32 animate-pulse"></div>
+                            <div className="flex items-center space-x-4">
+                                <div className="h-6 bg-gray-300 rounded w-24 animate-pulse"></div>
+                                <div className="h-10 bg-gray-300 rounded w-44 animate-pulse"></div>
+                            </div>
                         </div>
+
+                        <EmployeeInfoSkeleton />
+                        <AttendanceTableSkeleton />
                     </main>
                 </div>
             </div>
@@ -259,7 +312,10 @@ const ProfilePage = () => {
                             <div className="relative w-44">
                                 <DatePicker
                                     selected={selectedMonth}
-                                    onChange={(date: Date | null) => setSelectedMonth(date)}
+                                    onChange={(date: Date | null) => {
+                                        console.log('Date picker changed to:', date);
+                                        setSelectedMonth(date);
+                                    }}
                                     dateFormat="MMMM yyyy"
                                     showMonthYearPicker
                                     showYearDropdown
@@ -268,13 +324,15 @@ const ProfilePage = () => {
                                     className="block w-full rounded-md border-gray-300 shadow-sm p-2 font-semibold text-gray-800 focus:ring-yellow-400 focus:border-yellow-400 cursor-pointer bg-gray-50 hover:bg-yellow-50 transition"
                                     placeholderText="Pilih bulan & tahun"
                                     isClearable
+                                    popperClassName="custom-datepicker-popper"
+                                    wrapperClassName="w-full"
                                 />
                             </div>
                         </div>
                     </div>
 
                     <EmployeeInfo employee={employee} />
-                    <AttendanceTable records={attendanceRecords} loading={attendanceLoading} />
+                    <AttendanceTable records={attendanceRecords} loading={attendanceLoading} selectedMonth={selectedMonth} />
                 </main>
             </div>
         </div>

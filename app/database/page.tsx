@@ -6,8 +6,35 @@ import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import Image from 'next/image';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 // --- Helper Components & Icons ---
+
+// Loading skeleton component
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="min-w-full divide-y divide-gray-200">
+      <div className="bg-gray-50 p-6">
+        <div className="flex space-x-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+      <div className="bg-white divide-y divide-gray-200">
+        {[...Array(10)].map((_, i) => (
+          <div key={i} className="p-6">
+            <div className="flex space-x-4">
+              {[...Array(5)].map((_, j) => (
+                <div key={j} className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 // Icon for the Three Dot Menu
 const ThreeDotIcon = () => (
@@ -32,28 +59,29 @@ type Employee = {
 
 const DatabasePage = () => {
   const router = useRouter();
-  // State for the list of employees
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const queryClient = useQueryClient();
+  
+  // React Query for employees data
+  const { data: employeesData, isLoading: employeesLoading } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      const data = await getEmployees();
+      return data.map((item: DatabaseEmployee) => ({
+        id: item.id,
+        nama: item.nama,
+        nip: item.nip,
+        jabatan: item.jabatan ?? '',
+        status: (item.status === 'aktif' ? 'Aktif' : 'Tidak Aktif') as 'Aktif' | 'Tidak Aktif',
+      }));
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  const employees = useMemo(() => employeesData || [], [employeesData]);
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
-
-  // Fetch employees from the database on mount
-  useEffect(() => {
-    async function fetchData() {
-      const data = await getEmployees();
-      setEmployees(
-        data.map((item: DatabaseEmployee) => ({
-          id: item.id,
-          nama: item.nama,
-          nip: item.nip,
-          jabatan: item.jabatan ?? '',
-          status: (item.status === 'aktif' ? 'Aktif' : 'Tidak Aktif') as 'Aktif' | 'Tidak Aktif',
-        }))
-      );
-    }
-    fetchData();
-  }, []);
 
   // State for the search filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -183,19 +211,8 @@ const DatabasePage = () => {
 
       if (success) {
         console.log('✅ Employee added successfully, refreshing data...');
-        // Refresh the employee list
-        const updatedEmployees = await getEmployees();
-        console.log('📊 Updated employee count:', updatedEmployees.length);
-        
-        setEmployees(
-          updatedEmployees.map((item: DatabaseEmployee) => ({
-            id: item.id,
-            nama: item.nama,
-            nip: item.nip,
-            jabatan: item.jabatan ?? '',
-            status: 'Aktif', // or set based on your logic
-          }))
-        );
+        // Invalidate and refetch employees query
+        queryClient.invalidateQueries({ queryKey: ['employees'] });
         
         // Reset form and close dialog
         setFormData({ nip: '', nama: '', jabatan: '', pangkat: '', status: 'Aktif' });
@@ -236,25 +253,13 @@ const DatabasePage = () => {
       if (success) {
         console.log(`✅ Employee ${employeeToDelete.id} deleted successfully`);
         
-        // Refresh the employee list from database
-        const updatedEmployees = await getEmployees();
-        setEmployees(
-          updatedEmployees.map((item: DatabaseEmployee) => ({
-            id: item.id,
-            nama: item.nama,
-            nip: item.nip,
-            jabatan: item.jabatan ?? '',
-            status: 'Aktif',
-          }))
-        );
+        // Invalidate and refetch employees query
+        queryClient.invalidateQueries({ queryKey: ['employees'] });
         
-        // Reset to page 1 if current page becomes empty
-        const newTotalPages = Math.ceil(updatedEmployees.length / pageSize);
-        if (currentPage > newTotalPages && newTotalPages > 0) {
-          setCurrentPage(1);
-        }
+        // Reset to page 1 if needed (will be handled by the updated data)
+        setCurrentPage(1);
         
-        console.log(`🔄 Employee list refreshed, new count: ${updatedEmployees.length}`);
+        console.log(`🔄 Employee deleted successfully`);
       } else {
         console.error(`❌ Failed to delete employee ${employeeToDelete.id}`);
         alert('Gagal menghapus pegawai. Silakan coba lagi.');
@@ -518,8 +523,11 @@ const DatabasePage = () => {
             </div>
 
             {/* Employee Data Table */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white">
+            {employeesLoading ? (
+              <TableSkeleton />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white">
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Nama</th>
@@ -597,9 +605,10 @@ const DatabasePage = () => {
                 </tbody>
               </table>
             </div>
+            )}
             
             {/* --- FIXED & STYLED Pagination Controls --- */}
-            {totalPages > 0 && (
+            {!employeesLoading && totalPages > 0 && (
                 <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
                     <div className="text-sm text-gray-600">
                         Menampilkan <span className="font-semibold text-gray-800">{paginatedEmployees.length}</span> dari <span className="font-semibold text-gray-800">{filteredEmployees.length}</span> pegawai
