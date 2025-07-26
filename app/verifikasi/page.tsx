@@ -1,57 +1,150 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   getAttendanceForVerification, 
   updateVerificationStatus, 
   getAttendanceStats,
   getDatesWithPendingRequests,
   getDatesWithAttendanceRecords,
-  type AttendanceRecord 
+  type AttendanceRecord
 } from './actions';
+
+// Loading skeleton component
+const TableSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="min-w-full divide-y divide-gray-200">
+      <div className="bg-gray-50 p-6">
+        <div className="flex space-x-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+      <div className="bg-white divide-y divide-gray-200">
+        {[...Array(10)].map((_, i) => (
+          <div key={i} className="p-6">
+            <div className="flex space-x-4">
+              {[...Array(6)].map((_, j) => (
+                <div key={j} className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// Pagination component
+const Pagination = ({ 
+  currentPage, 
+  totalPages, 
+  onPageChange 
+}: { 
+  currentPage: number, 
+  totalPages: number, 
+  onPageChange: (page: number) => void 
+}) => {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+      <div className="flex flex-1 justify-between sm:hidden">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          Previous
+        </button>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
+      <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-gray-700">
+            Showing page <span className="font-medium">{currentPage}</span> of{' '}
+            <span className="font-medium">{totalPages}</span>
+          </p>
+        </div>
+        <div>
+          <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
+            {[...Array(Math.min(5, totalPages))].map((_, i) => {
+              const page = i + 1;
+              return (
+                <button
+                  key={page}
+                  onClick={() => onPageChange(page)}
+                  className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                    page === currentPage
+                      ? 'z-10 bg-blue-600 text-white focus-visible:outline-2'
+                      : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Main Page Component
 const VerifikasiPage = () => {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0 });
-  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [datesWithPending, setDatesWithPending] = useState<string[]>([]);
-  const [datesWithAttendance, setDatesWithAttendance] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const loadData = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const [records, statsData, pendingDates, availableDates] = await Promise.all([
-        getAttendanceForVerification(selectedDate || undefined),
-        getAttendanceStats(),
-        getDatesWithPendingRequests(),
-        getDatesWithAttendanceRecords()
-      ]);
-      setAttendanceRecords(records);
-      setStats(statsData);
-      setDatesWithPending(pendingDates);
-      setDatesWithAttendance(availableDates);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate]);
+  // React Query hooks for data fetching
+  const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
+    queryKey: ['attendance-verification', selectedDate?.toISOString(), currentPage],
+    queryFn: () => getAttendanceForVerification(selectedDate || undefined, currentPage, 10),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
 
-  // Load data on component mount and when date changes
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const { data: stats } = useQuery<{ total: number; approved: number; pending: number; rejected: number }>({
+    queryKey: ['attendance-stats'],
+    queryFn: getAttendanceStats,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  const { data: datesWithPending } = useQuery<string[]>({
+    queryKey: ['dates-pending'],
+    queryFn: getDatesWithPendingRequests,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+
+  const { data: datesWithAttendance } = useQuery<string[]>({
+    queryKey: ['dates-attendance'],
+    queryFn: getDatesWithAttendanceRecords,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Extracted data with defaults
+  const attendanceRecords = attendanceData?.records || [];
+  const totalPages = attendanceData?.totalPages || 0;
+  const statsData = stats || { total: 0, approved: 0, pending: 0, rejected: 0 };
+  const datesWithPendingData: string[] = datesWithPending || [];
+  const datesWithAttendanceData: string[] = datesWithAttendance || [];
 
   const handleVerifikasiClick = (record: AttendanceRecord) => {
     setSelectedRecord(record);
@@ -74,7 +167,10 @@ const VerifikasiPage = () => {
       );
 
       if (result.success) {
-        await loadData(); // Reload data
+        // Invalidate and refetch queries
+        queryClient.invalidateQueries({ queryKey: ['attendance-verification'] });
+        queryClient.invalidateQueries({ queryKey: ['attendance-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['dates-pending'] });
         handleCloseDialog();
       }
     } catch (error) {
@@ -93,12 +189,24 @@ const VerifikasiPage = () => {
       );
 
       if (result.success) {
-        await loadData(); // Reload data
+        // Invalidate and refetch queries
+        queryClient.invalidateQueries({ queryKey: ['attendance-verification'] });
+        queryClient.invalidateQueries({ queryKey: ['attendance-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['dates-pending'] });
         handleCloseDialog();
       }
     } catch (error) {
       console.error('Error rejecting record:', error);
     }
+  };
+
+  const handleDateChange = (date: Date | null) => {
+    setSelectedDate(date);
+    setCurrentPage(1); // Reset to first page when date changes
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
   };
 
   const formatTimestamp = (timestamp: number) => {
@@ -120,225 +228,14 @@ const VerifikasiPage = () => {
   const getVerifiedStatus = (verifiedStatus: string) => {
     switch (verifiedStatus) {
       case 'approved':
-        return { text: 'Diterima', bgColor: 'bg-green-600', textColor: 'text-white', disabled: true };
+        return { text: 'Diterima', bgColor: 'bg-red-200', textColor: 'text-red-800', disabled: true };
       case 'rejected':
-        return { text: 'Ditolak', bgColor: 'bg-red-600', textColor: 'text-white', disabled: true };
+        return { text: 'Ditolak', bgColor: 'bg-green-200', textColor: 'text-green-800', disabled: true };
       default:
         return { text: 'Verifikasi!', bgColor: '', textColor: '', disabled: false };
     }
   };
 
-  const handleDateChange = (date: Date | null) => {
-    setSelectedDate(date);
-  };
-
-  const handlePrintReport = () => {
-    // Create a new window for printing
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    // Get current date for report generation
-    const currentDate = new Date().toLocaleDateString('id-ID', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-
-    // Determine report title based on selected date
-    const reportTitle = selectedDate 
-      ? `Laporan Verifikasi Absensi - ${selectedDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
-      : 'Laporan Verifikasi Absensi - Semua Data';
-
-    // Generate table rows
-    const tableRows = attendanceRecords.map((record, index) => {
-      const ketepatanWaktu = getKetepatanWaktu(record.status);
-      const verifiedStatus = getVerifiedStatus(record.verified_status);
-      
-      return `
-        <tr>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${index + 1}</td>
-          <td style="padding: 8px; border: 1px solid #ddd;">${record.nama}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${record.nip}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${formatTimestamp(record.timestamp)}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
-            <span style="padding: 4px 8px; background-color: ${ketepatanWaktu.text === 'Tepat Waktu' ? '#dcfce7' : '#fee2e2'}; color: ${ketepatanWaktu.text === 'Tepat Waktu' ? '#166534' : '#991b1b'}; border-radius: 9999px; font-size: 12px; font-weight: 600;">
-              ${ketepatanWaktu.text}
-            </span>
-          </td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
-            <span style="padding: 4px 8px; background-color: ${
-              verifiedStatus.text === 'Diterima' ? '#16a34a' : 
-              verifiedStatus.text === 'Ditolak' ? '#dc2626' : '#6b7280'
-            }; color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">
-              ${verifiedStatus.text}
-            </span>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    // Create the HTML content for printing
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${reportTitle}</title>
-          <style>
-            @media print {
-              @page {
-                margin: 1cm;
-                size: A4 landscape;
-              }
-              body {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
-            }
-            body {
-              font-family: Arial, sans-serif;
-              margin: 0;
-              padding: 20px;
-              color: #333;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 20px;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 24px;
-              font-weight: bold;
-            }
-            .header p {
-              margin: 5px 0;
-              font-size: 14px;
-              color: #666;
-            }
-            .stats {
-              display: flex;
-              justify-content: center;
-              gap: 40px;
-              margin-bottom: 30px;
-              padding: 20px;
-              background-color: #f5f5f5;
-              border-radius: 8px;
-            }
-            .stat-item {
-              text-align: center;
-            }
-            .stat-label {
-              font-size: 14px;
-              color: #666;
-              margin-bottom: 5px;
-            }
-            .stat-value {
-              font-size: 24px;
-              font-weight: bold;
-            }
-            .stat-total { color: #000; }
-            .stat-approved { color: #16a34a; }
-            .stat-pending { color: #dc2626; }
-            .stat-rejected { color: #991b1b; }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 30px;
-            }
-            th {
-              background-color: #f8f9fa;
-              padding: 12px 8px;
-              border: 1px solid #ddd;
-              font-weight: bold;
-              text-align: center;
-              font-size: 12px;
-            }
-            td {
-              font-size: 11px;
-            }
-            .footer {
-              margin-top: 40px;
-              text-align: right;
-              font-size: 12px;
-              color: #666;
-            }
-            .no-data {
-              text-align: center;
-              padding: 40px;
-              color: #666;
-              font-style: italic;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>KEJAKSAAN TINGGI JAWA TENGAH</h1>
-            <h2>${reportTitle}</h2>
-            <p>Dicetak pada: ${currentDate}</p>
-          </div>
-
-          <div class="stats">
-            <div class="stat-item">
-              <div class="stat-label">Total Data</div>
-              <div class="stat-value stat-total">${stats.total}</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Terverifikasi</div>
-              <div class="stat-value stat-approved">${stats.approved}</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Menunggu</div>
-              <div class="stat-value stat-pending">${stats.pending}</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Ditolak</div>
-              <div class="stat-value stat-rejected">${stats.rejected}</div>
-            </div>
-          </div>
-
-          ${attendanceRecords.length === 0 ? `
-            <div class="no-data">
-              Tidak ada data untuk ditampilkan
-            </div>
-          ` : `
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 5%;">No</th>
-                  <th style="width: 25%;">Nama Lengkap</th>
-                  <th style="width: 15%;">NIP</th>
-                  <th style="width: 15%;">Waktu Absen</th>
-                  <th style="width: 15%;">Ketepatan Waktu</th>
-                  <th style="width: 15%;">Status Verifikasi</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${tableRows}
-              </tbody>
-            </table>
-          `}
-
-          <div class="footer">
-            <p>Laporan ini digenerate secara otomatis oleh Sistem Absensi Apel Kejati</p>
-            <p>Total Records: ${attendanceRecords.length}</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    // Write content to print window and trigger print
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    
-    // Wait for content to load then print
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    };
-  };
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col font-sans">
       <Header />
@@ -368,7 +265,7 @@ const VerifikasiPage = () => {
                   const month = String(date.getMonth() + 1).padStart(2, '0');
                   const day = String(date.getDate()).padStart(2, '0');
                   const dateString = `${year}-${month}-${day}`;
-                  return datesWithAttendance.includes(dateString);
+                  return datesWithAttendanceData.includes(dateString);
                 }}
                 renderDayContents={(day, date) => {
                   if (!date) return day;
@@ -378,8 +275,8 @@ const VerifikasiPage = () => {
                   const dayStr = String(date.getDate()).padStart(2, '0');
                   const dateString = `${year}-${month}-${dayStr}`;
                   
-                  const hasPending = datesWithPending.includes(dateString);
-                  const hasAttendance = datesWithAttendance.includes(dateString);
+                  const hasPending = datesWithPendingData.includes(dateString);
+                  const hasAttendance = datesWithAttendanceData.includes(dateString);
                   
                   return (
                     <div 
@@ -426,122 +323,116 @@ const VerifikasiPage = () => {
             )}
           </div>
 
-          {/* Stats and Report Button */}
-          <div className="flex items-center justify-between mb-8">
+          {/* Stats */}
+          <div className="flex items-center justify-center mb-8">
             <div className="flex space-x-6 bg-gray-200 p-6 rounded-lg shadow-inner">
               <div className="text-center">
                 <div className="text-gray-600">Total Data</div>
-                <div className="text-3xl font-bold text-black">{stats.total}</div>
+                <div className="text-3xl font-bold text-black">{statsData.total}</div>
               </div>
               <div className="text-center">
                 <div className="text-gray-600">Terverifikasi</div>
-                <div className="text-3xl font-bold text-green-600">{stats.approved}</div>
+                <div className="text-3xl font-bold text-green-600">{statsData.approved}</div>
               </div>
               <div className="text-center">
                 <div className="text-gray-600">Menunggu</div>
-                <div className="text-3xl font-bold text-red-600">{stats.pending}</div>
+                <div className="text-3xl font-bold text-red-600">{statsData.pending}</div>
               </div>
               <div className="text-center">
                 <div className="text-gray-600">Ditolak</div>
-                <div className="text-3xl font-bold text-red-800">{stats.rejected}</div>
+                <div className="text-3xl font-bold text-red-800">{statsData.rejected}</div>
               </div>
             </div>
-            <button 
-              className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
-              onClick={handlePrintReport}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              Cetak Laporan
-            </button>
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        No
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Nama Lengkap
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        NIP
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Timestamp
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ketepatan Waktu
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Hasil Verifikasi
-                    </th>
-                    </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                        Loading...
-                      </td>
-                    </tr>
-                  ) : attendanceRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                        No attendance records found
-                      </td>
-                    </tr>
-                  ) : (
-                    attendanceRecords.map((record, index) => {
-                      const ketepatanWaktu = getKetepatanWaktu(record.status);
-                      const verifiedStatus = getVerifiedStatus(record.verified_status);
-                      
-                      return (
-                        <tr key={record.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.nama}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.nip}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatTimestamp(record.timestamp)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ketepatanWaktu.bgColor} ${ketepatanWaktu.textColor}`}>
-                              {ketepatanWaktu.text}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {verifiedStatus.disabled ? (
-                              <button 
-                                className={`px-2 py-1 text-xs font-semibold rounded-full cursor-not-allowed ${verifiedStatus.bgColor} ${verifiedStatus.textColor}`} 
-                                disabled
-                              >
-                                {verifiedStatus.text}
-                              </button>
-                            ) : (
-                              <button 
-                                className="px-3 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-blue-500 to-blue-700 text-white hover:from-blue-600 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl border-2 border-blue-300" 
-                                onClick={() => handleVerifikasiClick(record)}
-                              >
-                                <span className="flex items-center gap-2">
-                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                  </svg>
+          {attendanceLoading ? (
+            <TableSkeleton />
+          ) : (
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                  <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          No
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Nama Lengkap
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          NIP
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Jam
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ketepatan Waktu
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Aksi
+                      </th>
+                  </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {attendanceRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                          No attendance records found
+                        </td>
+                      </tr>
+                    ) : (
+                      attendanceRecords.map((record: AttendanceRecord, index: number) => {
+                        const ketepatanWaktu = getKetepatanWaktu(record.status);
+                        const verifiedStatus = getVerifiedStatus(record.verified_status);
+                        
+                        return (
+                          <tr key={record.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {(currentPage - 1) * 10 + index + 1}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {record.nama}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {record.nip}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatTimestamp(record.timestamp)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ketepatanWaktu.bgColor} ${ketepatanWaktu.textColor}`}>
+                                {ketepatanWaktu.text}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              {verifiedStatus.disabled ? (
+                                <span className={`px-3 py-2 text-xs font-semibold rounded-lg ${verifiedStatus.bgColor} ${verifiedStatus.textColor}`}>
                                   {verifiedStatus.text}
                                 </span>
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-            </table>
-          </div>
+                              ) : (
+                                <button 
+                                  className="px-3 py-2 text-sm font-bold rounded-lg bg-blue-500 text-white hover:bg-blue-600"
+                                  onClick={() => handleVerifikasiClick(record)}
+                                >
+                                  Verifikasi!
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+              </table>
+              
+              {/* Pagination */}
+              <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
 
         {/* Dialog Modal */}
         {showDialog && selectedRecord && (

@@ -2,86 +2,124 @@
 
 import { db } from '@/db';
 import { attendanceTable, employeesTable } from '@/db/schema';
-import { eq, desc, and, gte, lte } from 'drizzle-orm';
+import { eq, desc, and, count, sql } from 'drizzle-orm';
 
 export interface AttendanceRecord {
-  id: number;
-  nip: string;
+  id: string;
   nama: string;
+  nip: string;
   timestamp: number;
   status: string;
   verified_status: string;
-  verified_by: string | null;
-  photo: string | null; // Change to base64 string
-  employeePhoto: string | null; // Add employee photo
+  photo: string | null;
+  employeePhoto: string | null;
 }
 
-export async function getAttendanceForVerification(selectedDate?: Date): Promise<AttendanceRecord[]> {
+export interface PaginatedAttendanceResult {
+  records: AttendanceRecord[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+export async function getAttendanceForVerification(
+  date?: Date,
+  page: number = 1,
+  limit: number = 20
+): Promise<PaginatedAttendanceResult> {
   try {
-    // Build base query
-    const baseQuery = db
-      .select({
-        id: attendanceTable.id,
-        nip: attendanceTable.nip,
-        nama: employeesTable.nama,
-        timestamp: attendanceTable.timestamp,
-        status: attendanceTable.status,
-        verified_status: attendanceTable.verified_status,
-        verified_by: attendanceTable.verified_by,
-        photo: attendanceTable.photo,
-        employeePhoto: employeesTable.foto, // Add employee photo
-      })
-      .from(attendanceTable)
-      .innerJoin(employeesTable, eq(attendanceTable.nip, employeesTable.nip));
-
-    // Execute query with or without date filter
-    let records;
-    if (selectedDate) {
-      const startOfDay = new Date(selectedDate);
+    const offset = (page - 1) * limit;
+    
+    // Build the where conditions
+    const conditions = [];
+    
+    if (date) {
+      const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(selectedDate);
+      const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
-
-      records = await baseQuery
-        .where(
-          and(
-            gte(attendanceTable.timestamp, startOfDay.getTime()),
-            lte(attendanceTable.timestamp, endOfDay.getTime())
-          )
+      
+      conditions.push(
+        and(
+          sql`${attendanceTable.timestamp} >= ${startOfDay.getTime()}`,
+          sql`${attendanceTable.timestamp} <= ${endOfDay.getTime()}`
         )
-        .orderBy(desc(attendanceTable.timestamp));
-    } else {
-      records = await baseQuery.orderBy(desc(attendanceTable.timestamp));
+      );
     }
 
-    return records.map(record => ({
-      ...record,
-      nip: record.nip || '',
-      nama: record.nama || '',
-      status: record.status || '',
-      verified_status: record.verified_status || 'pending',
-      photo: record.photo ? `data:image/jpeg;base64,${Buffer.from(record.photo as string).toString('base64')}` : null,
-      employeePhoto: record.employeePhoto ? `data:image/jpeg;base64,${Buffer.from(record.employeePhoto as Uint8Array).toString('base64')}` : null,
-    }));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Execute both queries in parallel for better performance
+    const [attendanceRecords, totalCountResult] = await Promise.all([
+      // Get paginated records
+      db
+        .select({
+          id: attendanceTable.id,
+          nama: employeesTable.nama,
+          nip: employeesTable.nip,
+          timestamp: attendanceTable.timestamp,
+          status: attendanceTable.status,
+          verified_status: attendanceTable.verified_status,
+          photo: attendanceTable.photo,
+          employeePhoto: employeesTable.foto,
+        })
+        .from(attendanceTable)
+        .leftJoin(employeesTable, eq(attendanceTable.nip, employeesTable.nip))
+        .where(whereClause)
+        .orderBy(desc(attendanceTable.timestamp))
+        .limit(limit)
+        .offset(offset),
+      
+      // Get total count
+      db
+        .select({ count: count() })
+        .from(attendanceTable)
+        .leftJoin(employeesTable, eq(attendanceTable.nip, employeesTable.nip))
+        .where(whereClause)
+    ]);
+
+    const totalRecords = totalCountResult[0]?.count || 0;
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    return {
+      records: attendanceRecords.map((record) => ({
+        id: String(record.id) || '',
+        nama: record.nama || '',
+        nip: record.nip || '',
+        timestamp: record.timestamp || 0,
+        status: record.status || '',
+        verified_status: record.verified_status || 'pending',
+        photo: record.photo ? `data:image/jpeg;base64,${Buffer.from(record.photo as ArrayBuffer).toString('base64')}` : null,
+        employeePhoto: record.employeePhoto ? `data:image/jpeg;base64,${Buffer.from(record.employeePhoto as ArrayBuffer).toString('base64')}` : null,
+      })),
+      total: totalRecords,
+      totalPages,
+      currentPage: page,
+    };
   } catch (error) {
     console.error('Error fetching attendance records:', error);
-    return [];
+    return {
+      records: [],
+      total: 0,
+      totalPages: 0,
+      currentPage: page,
+    };
   }
 }
 
 export async function updateVerificationStatus(
-  attendanceId: number,
-  verifiedStatus: 'approved' | 'rejected',
+  recordId: string,
+  status: 'approved' | 'rejected',
   verifiedBy: string
-): Promise<{ success: boolean; error?: string }> {
+) {
   try {
     await db
       .update(attendanceTable)
       .set({
-        verified_status: verifiedStatus,
+        verified_status: status,
         verified_by: verifiedBy,
       })
-      .where(eq(attendanceTable.id, attendanceId));
+      .where(eq(attendanceTable.id, parseInt(recordId)));
 
     return { success: true };
   } catch (error) {
@@ -92,31 +130,22 @@ export async function updateVerificationStatus(
 
 export async function getAttendanceStats() {
   try {
-    const records = await db
-      .select({
-        verified_status: attendanceTable.verified_status,
-      })
-      .from(attendanceTable);
-
-    const total = records.length;
-    const approved = records.filter(r => r.verified_status === 'approved').length;
-    const pending = records.filter(r => r.verified_status === 'pending').length;
-    const rejected = records.filter(r => r.verified_status === 'rejected').length;
+    const [totalResult, approvedResult, pendingResult, rejectedResult] = await Promise.all([
+      db.select({ count: count() }).from(attendanceTable),
+      db.select({ count: count() }).from(attendanceTable).where(eq(attendanceTable.verified_status, 'approved')),
+      db.select({ count: count() }).from(attendanceTable).where(eq(attendanceTable.verified_status, 'pending')),
+      db.select({ count: count() }).from(attendanceTable).where(eq(attendanceTable.verified_status, 'rejected')),
+    ]);
 
     return {
-      total,
-      approved,
-      pending,
-      rejected,
+      total: totalResult[0]?.count || 0,
+      approved: approvedResult[0]?.count || 0,
+      pending: pendingResult[0]?.count || 0,
+      rejected: rejectedResult[0]?.count || 0,
     };
   } catch (error) {
     console.error('Error fetching attendance stats:', error);
-    return {
-      total: 0,
-      approved: 0,
-      pending: 0,
-      rejected: 0,
-    };
+    return { total: 0, approved: 0, pending: 0, rejected: 0 };
   }
 }
 
@@ -129,18 +158,12 @@ export async function getDatesWithPendingRequests(): Promise<string[]> {
       .from(attendanceTable)
       .where(eq(attendanceTable.verified_status, 'pending'));
 
-    // Convert timestamps to date strings (YYYY-MM-DD format) considering local timezone
-    const datesWithPending = records.map(record => {
+    const dates = records.map((record) => {
       const date = new Date(record.timestamp);
-      // Use local date to avoid timezone issues
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      return date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
     });
 
-    // Remove duplicates and return unique dates
-    return [...new Set(datesWithPending)];
+    return [...new Set(dates)]; // Remove duplicates
   } catch (error) {
     console.error('Error fetching dates with pending requests:', error);
     return [];
@@ -155,18 +178,12 @@ export async function getDatesWithAttendanceRecords(): Promise<string[]> {
       })
       .from(attendanceTable);
 
-    // Convert timestamps to date strings (YYYY-MM-DD format) considering local timezone
-    const datesWithRecords = records.map(record => {
+    const dates = records.map((record) => {
       const date = new Date(record.timestamp);
-      // Use local date to avoid timezone issues
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      return date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
     });
 
-    // Remove duplicates and return unique dates
-    return [...new Set(datesWithRecords)];
+    return [...new Set(dates)]; // Remove duplicates
   } catch (error) {
     console.error('Error fetching dates with attendance records:', error);
     return [];

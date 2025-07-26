@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import AuthProvider from "./components/AuthProvider";
+import QueryProvider from "./components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,9 +23,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} antialiased`}>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </QueryProvider>
         <SpeedInsights />
       </body>
     </html>
