@@ -74,25 +74,50 @@ function FotoPageContent() {
 
   // Function to start the camera
   const startCamera = React.useCallback(async () => {
-    if (stream) return;
     try {
+      // Stop existing stream if any
+      setStream(prevStream => {
+        if (prevStream) {
+          prevStream.getTracks().forEach(track => track.stop());
+        }
+        return null;
+      });
+
+      // Clear the video element's srcObject first
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        // Ensure the video plays
+        try {
+          await videoRef.current.play();
+        } catch (playError) {
+          console.error("Error playing video:", playError);
+        }
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
     }
-  }, [stream]);
+  }, []);
 
   // Function to stop the camera
   const stopCamera = React.useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+    setStream(prevStream => {
+      if (prevStream) {
+        prevStream.getTracks().forEach(track => track.stop());
+      }
+      return null;
+    });
+    
+    // Clear the video element's srcObject
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
-  }, [stream]);
+  }, []);
 
   // Function to capture a photo from the video stream
   const handleTakePhoto = () => {
@@ -118,9 +143,9 @@ function FotoPageContent() {
   };
 
   // Function to retake the photo
-  const handleRetakePhoto = () => {
+  const handleRetakePhoto = async () => {
     setCapturedImage(null);
-    startCamera(); // Restart the camera
+    await startCamera(); // Restart the camera
   };
 
   // Function to save the photo
@@ -180,13 +205,30 @@ function FotoPageContent() {
 
   // Effect to start the camera when the component mounts
   useEffect(() => {
-    startCamera();
+    const initCamera = async () => {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setStream(mediaStream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+        }
+      } catch (error) {
+        console.error("Error accessing camera:", error);
+      }
+    };
+
+    initCamera();
 
     // Cleanup function to stop the camera when the component unmounts
     return () => {
-      stopCamera();
+      setStream(prevStream => {
+        if (prevStream) {
+          prevStream.getTracks().forEach(track => track.stop());
+        }
+        return null;
+      });
     };
-  }, [startCamera, stopCamera]); // Empty dependency array ensures this runs only once on mount
+  }, []); // Empty dependency array ensures this runs only once on mount
 
 
   return (
