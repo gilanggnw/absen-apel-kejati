@@ -403,3 +403,100 @@ export async function getAttendanceByNip(nip: string, date?: Date): Promise<Atte
     return [];
   }
 }
+
+// Storage Management Functions - "Time Bomb" for cleaning old photos
+
+export async function getAttendancePhotoStats() {
+  try {
+    // Get total records with photos
+    const totalWithPhotos = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(attendanceTable)
+      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != ''`);
+
+    // Get old records (3+ months) with photos
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const threeMonthsAgoTimestamp = threeMonthsAgo.getTime();
+    
+    const oldWithPhotos = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(attendanceTable)
+      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != '' AND ${attendanceTable.timestamp} < ${threeMonthsAgoTimestamp}`);
+
+    // Estimate storage size (rough calculation)
+    const avgPhotoSizeKB = 750; // Average photo size in KB
+    const totalStorageKB = (totalWithPhotos[0]?.count || 0) * avgPhotoSizeKB;
+    const oldStorageKB = (oldWithPhotos[0]?.count || 0) * avgPhotoSizeKB;
+
+    return {
+      totalRecordsWithPhotos: totalWithPhotos[0]?.count || 0,
+      oldRecordsWithPhotos: oldWithPhotos[0]?.count || 0,
+      totalStorageKB,
+      oldStorageKB,
+      potentialSavingsKB: oldStorageKB,
+      cutoffDate: threeMonthsAgo.toLocaleDateString('id-ID')
+    };
+  } catch (error) {
+    console.error('Failed to get storage stats:', error);
+    throw error;
+  }
+}
+
+export async function cleanupOldAttendancePhotos() {
+  try {
+    // Calculate cutoff date (3 months ago)
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const threeMonthsAgoTimestamp = threeMonthsAgo.getTime();
+    
+    console.log('🕐 Starting storage cleanup...');
+    console.log('📅 Cutoff date:', threeMonthsAgo.toLocaleDateString('id-ID'));
+
+    // Get count of records that will be affected
+    const oldRecords = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(attendanceTable)
+      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != '' AND ${attendanceTable.timestamp} < ${threeMonthsAgoTimestamp}`);
+
+    const recordsToClean = oldRecords[0]?.count || 0;
+    console.log('📊 Found', recordsToClean, 'old records with photos');
+
+    if (recordsToClean === 0) {
+      console.log('✅ No old photos to clean');
+      return {
+        success: true,
+        recordsCleaned: 0,
+        message: 'No old photos found to clean'
+      };
+    }
+
+    // Calculate estimated space savings
+    const avgPhotoSizeKB = 750;
+    const estimatedSavingsKB = recordsToClean * avgPhotoSizeKB;
+    const estimatedSavingsMB = (estimatedSavingsKB / 1024).toFixed(2);
+    
+    console.log('💾 Estimated space to be saved:', estimatedSavingsMB, 'MB');
+
+    // Update old records to remove photo blobs
+    // This keeps the attendance record but removes the photo data
+    await db
+      .update(attendanceTable)
+      .set({ photo: null })
+      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != '' AND ${attendanceTable.timestamp} < ${threeMonthsAgoTimestamp}`);
+
+    console.log('🗑️ Successfully removed photos from', recordsToClean, 'records');
+    console.log('💾 Estimated space saved:', estimatedSavingsMB, 'MB');
+    console.log('✅ Storage cleanup completed successfully');
+
+    return {
+      success: true,
+      recordsCleaned: recordsToClean,
+      estimatedSavingsMB: parseFloat(estimatedSavingsMB),
+      message: `Successfully cleaned ${recordsToClean} old photos, saving approximately ${estimatedSavingsMB} MB`
+    };
+  } catch (error) {
+    console.error('❌ Storage cleanup failed:', error);
+    throw error;
+  }
+}

@@ -58,7 +58,7 @@ export default function Page() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-[#FFD600] grid grid-cols-1 md:grid-cols-2">
+    <main className="min-h-screen w-full bg-[#FFD600] grid grid-cols-1 md:grid-cols-[3fr_2fr]">
       {/* Left Side: Logo */}
       <div className="flex items-center justify-center bg-white">
         <div className="flex flex-col items-center justify-center">
