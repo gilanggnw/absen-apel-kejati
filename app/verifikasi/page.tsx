@@ -12,8 +12,8 @@ import {
   getAttendanceForVerification, 
   updateVerificationStatus, 
   getAttendanceStats,
-  getDatesWithPendingRequests,
   getDatesWithAttendanceRecords,
+  getAttendancePhotos,
   type AttendanceRecord
 } from './actions';
 
@@ -113,42 +113,49 @@ const VerifikasiPage = () => {
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [loadedPhotos, setLoadedPhotos] = useState<Map<string, { photo: string | null; employeePhoto: string | null }>>(new Map());
 
-  // React Query hooks for data fetching
+  // React Query hooks for data fetching with optimized cache settings
   const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
     queryKey: ['attendance-verification', selectedDate?.toISOString(), currentPage],
     queryFn: () => getAttendanceForVerification(selectedDate || undefined, currentPage, 10),
     staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
   });
 
   const { data: stats } = useQuery<{ total: number; approved: number; pending: number; rejected: number }>({
     queryKey: ['attendance-stats'],
     queryFn: getAttendanceStats,
     staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-
-  const { data: datesWithPending } = useQuery<string[]>({
-    queryKey: ['dates-pending'],
-    queryFn: getDatesWithPendingRequests,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 15, // 15 minutes garbage collection
   });
 
   const { data: datesWithAttendance } = useQuery<string[]>({
     queryKey: ['dates-attendance'],
     queryFn: getDatesWithAttendanceRecords,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 15, // 15 minutes garbage collection
   });
 
   // Extracted data with defaults
   const attendanceRecords = attendanceData?.records || [];
   const totalPages = attendanceData?.totalPages || 0;
   const statsData = stats || { total: 0, approved: 0, pending: 0, rejected: 0 };
-  const datesWithPendingData: string[] = datesWithPending || [];
   const datesWithAttendanceData: string[] = datesWithAttendance || [];
 
-  const handleVerifikasiClick = (record: AttendanceRecord) => {
+  const handleVerifikasiClick = async (record: AttendanceRecord) => {
     setSelectedRecord(record);
     setShowDialog(true);
+    
+    // Lazy load photos only when dialog is opened
+    if (record.id && !loadedPhotos.has(record.id)) {
+      try {
+        const photos = await getAttendancePhotos(record.id);
+        setLoadedPhotos(prev => new Map(prev.set(record.id, photos)));
+      } catch (error) {
+        console.error('Error loading photos:', error);
+      }
+    }
   };
 
   const handleCloseDialog = () => {
@@ -211,11 +218,18 @@ const VerifikasiPage = () => {
 
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('id-ID', {
+    const dayName = date.toLocaleDateString('id-ID', { weekday: 'long' });
+    const dateString = date.toLocaleDateString('id-ID', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
+    const timeString = date.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     });
+    return `${dayName}, ${dateString} - ${timeString}`;
   };
 
   const getKetepatanWaktu = (status: string) => {
@@ -260,50 +274,12 @@ const VerifikasiPage = () => {
                 placeholderText="Semua tanggal"
                 isClearable
                 filterDate={(date) => {
-                  // Only allow dates that have attendance records
+                  if (!datesWithAttendanceData) return true;
                   const year = date.getFullYear();
                   const month = String(date.getMonth() + 1).padStart(2, '0');
                   const day = String(date.getDate()).padStart(2, '0');
                   const dateString = `${year}-${month}-${day}`;
                   return datesWithAttendanceData.includes(dateString);
-                }}
-                renderDayContents={(day, date) => {
-                  if (!date) return day;
-                  
-                  const year = date.getFullYear();
-                  const month = String(date.getMonth() + 1).padStart(2, '0');
-                  const dayStr = String(date.getDate()).padStart(2, '0');
-                  const dateString = `${year}-${month}-${dayStr}`;
-                  
-                  const hasPending = datesWithPendingData.includes(dateString);
-                  const hasAttendance = datesWithAttendanceData.includes(dateString);
-                  
-                  return (
-                    <div 
-                      style={{ 
-                        position: 'relative', 
-                        display: 'inline-block',
-                        opacity: hasAttendance ? 1 : 0.3,
-                        color: hasAttendance ? 'inherit' : '#9ca3af'
-                      }}
-                    >
-                      {day}
-                      {hasPending && hasAttendance && (
-                        <span 
-                          style={{
-                            position: 'absolute',
-                            top: '-2px',
-                            right: '-2px',
-                            color: '#dc2626',
-                            fontSize: '10px',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          !
-                        </span>
-                      )}
-                    </div>
-                  );
                 }}
               />
 
@@ -363,7 +339,7 @@ const VerifikasiPage = () => {
                           NIP
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Jam
+                          Hari, Tanggal & Jam
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ketepatan Waktu
@@ -451,39 +427,65 @@ const VerifikasiPage = () => {
               <div className="flex justify-center gap-8 mb-10">
                 <div className="text-center">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Foto Absensi</h4>
-                  {selectedRecord.photo ? (
-                    <div className="w-56 h-56 bg-gray-200 rounded-lg overflow-hidden">
-                      <Image 
-                        src={selectedRecord.photo}
-                        alt="Attendance Photo"
-                        width={224}
-                        height={224}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">
-                      No Photo Available
-                    </div>
-                  )}
+                  {(() => {
+                    const photos = loadedPhotos.get(selectedRecord.id);
+                    if (!photos) {
+                      return (
+                        <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-500"></div>
+                        </div>
+                      );
+                    }
+                    if (photos.photo) {
+                      return (
+                        <div className="w-56 h-56 bg-gray-200 rounded-lg overflow-hidden">
+                          <Image 
+                            src={photos.photo}
+                            alt="Attendance Photo"
+                            width={224}
+                            height={224}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">
+                        No Photo Available
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="text-center">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Foto Profile</h4>
-                  {selectedRecord.employeePhoto ? (
-                    <div className="w-56 h-56 bg-gray-200 rounded-lg overflow-hidden">
-                      <Image 
-                        src={selectedRecord.employeePhoto}
-                        alt="Employee Profile Photo"
-                        width={224}
-                        height={224}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">
-                      No Profile Photo
-                    </div>
-                  )}
+                  {(() => {
+                    const photos = loadedPhotos.get(selectedRecord.id);
+                    if (!photos) {
+                      return (
+                        <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-500"></div>
+                        </div>
+                      );
+                    }
+                    if (photos.employeePhoto) {
+                      return (
+                        <div className="w-56 h-56 bg-gray-200 rounded-lg overflow-hidden">
+                          <Image 
+                            src={photos.employeePhoto}
+                            alt="Employee Profile Photo"
+                            width={224}
+                            height={224}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">
+                        No Profile Photo
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
               

@@ -136,15 +136,18 @@ const AttendanceTable = ({
 }) => {
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleString('id-ID', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    const dayName = date.toLocaleDateString('id-ID', { weekday: 'long' });
+    const dateString = date.toLocaleDateString('id-ID', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
+    const timeString = date.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     });
+    return `${dayName}, ${dateString} - ${timeString}`;
   };
 
   const getStatusStyle = (status: string) => {
@@ -365,15 +368,18 @@ const AbsenApelPage = () => {
 
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleString('id-ID', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    const dayName = date.toLocaleDateString('id-ID', { weekday: 'long' });
+    const dateString = date.toLocaleDateString('id-ID', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
+    const timeString = date.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     });
+    return `${dayName}, ${dateString} - ${timeString}`;
   };
 
   const handlePrintReport = () => {
