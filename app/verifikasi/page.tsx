@@ -242,9 +242,9 @@ const VerifikasiPage = () => {
   const getVerifiedStatus = (verifiedStatus: string) => {
     switch (verifiedStatus) {
       case 'approved':
-        return { text: 'Diterima', bgColor: 'bg-red-200', textColor: 'text-red-800', disabled: true };
+        return { text: 'Diterima', bgColor: 'bg-green-200', textColor: 'text-green-800', disabled: true };
       case 'rejected':
-        return { text: 'Ditolak', bgColor: 'bg-green-200', textColor: 'text-green-800', disabled: true };
+        return { text: 'Ditolak', bgColor: 'bg-red-200', textColor: 'text-red-800', disabled: true };
       default:
         return { text: 'Verifikasi!', bgColor: '', textColor: '', disabled: false };
     }

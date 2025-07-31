@@ -328,7 +328,7 @@ const AbsenApelPage = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const [selectedPrintMonth, setSelectedPrintMonth] = useState<string>('');
+  const [selectedPrintDate, setSelectedPrintDate] = useState<Date | null>(null);
 
   // React Query for attendance records with pagination
   const { 
@@ -403,8 +403,8 @@ const AbsenApelPage = () => {
   };
 
   const handleConfirmPrint = async () => {
-    if (!selectedPrintMonth) {
-      alert('Silakan pilih bulan terlebih dahulu');
+    if (!selectedPrintDate) {
+      alert('Silakan pilih tanggal terlebih dahulu');
       return;
     }
 
@@ -416,13 +416,9 @@ const AbsenApelPage = () => {
         printButton.textContent = 'Memproses...';
       }
 
-      // Parse the selected month (format: "YYYY-MM")
-      const [year, month] = selectedPrintMonth.split('-');
-
-      // Optimized: Get monthly data more efficiently by fetching larger batches
-      // and filtering based on available dates instead of day-by-day requests
-      const monthlyRecords: RekapAttendanceRecord[] = [];
-      let monthlyStats = {
+      // Optimized: Get data for the selected date
+      const dailyRecords: RekapAttendanceRecord[] = [];
+      let dailyStats = {
         total: 0,
         present: 0,
         absent: 0,
@@ -430,50 +426,21 @@ const AbsenApelPage = () => {
         late: 0
       };
 
-      // Filter available dates for the selected month
-      const monthDates = datesWithAttendance?.filter(dateString => {
-        const [dateYear, dateMonth] = dateString.split('-');
-        return dateYear === year && dateMonth === month.padStart(2, '0');
-      }) || [];
-
-      // Batch fetch data for all days that have attendance records
-      const batchPromises = monthDates.map(async (dateString) => {
-        const [y, m, d] = dateString.split('-');
-        const dayDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-        return getAttendanceForRekap(dayDate, 1, 1000);
-      });
-
-      // Execute all requests in parallel instead of sequentially
-      const batchResults = await Promise.all(batchPromises);
-      
-      // Combine all records
-      batchResults.forEach(result => {
-        if (result?.records) {
-          monthlyRecords.push(...result.records);
-        }
-      });
-
-      // Get stats more efficiently - just get it once for any day in the month
-      if (monthDates.length > 0) {
-        const [firstYear, firstMonth, firstDay] = monthDates[0].split('-');
-        const sampleDate = new Date(parseInt(firstYear), parseInt(firstMonth) - 1, parseInt(firstDay));
-        const firstDayStats = await getRekapStats(sampleDate);
-        const uniqueAttendees = new Set(monthlyRecords.map(r => r.nip));
-        
-        monthlyStats = {
-          total: firstDayStats.total,
-          present: uniqueAttendees.size,
-          absent: firstDayStats.total - uniqueAttendees.size,
-          onTime: monthlyRecords.filter(r => 
-            r.status?.toLowerCase().includes('tepat waktu') || 
-            (!r.status?.toLowerCase().includes('telat') && !r.status?.toLowerCase().includes('terlambat'))
-          ).length,
-          late: monthlyRecords.filter(r => 
-            r.status?.toLowerCase().includes('telat') || 
-            r.status?.toLowerCase().includes('terlambat')
-          ).length,
-        };
+      // Get attendance data for the selected date
+      const attendanceResult = await getAttendanceForRekap(selectedPrintDate, 1, 1000);
+      if (attendanceResult?.records) {
+        dailyRecords.push(...attendanceResult.records);
       }
+
+      // Get stats for the selected date
+      const statsResult = await getRekapStats(selectedPrintDate);
+      dailyStats = {
+        total: statsResult.total,
+        present: statsResult.present,
+        absent: statsResult.absent,
+        onTime: statsResult.onTime,
+        late: statsResult.late,
+      };
 
       // Create print content immediately after data is ready
       // Instead of opening a new window, create a hidden iframe for printing
@@ -504,16 +471,17 @@ const AbsenApelPage = () => {
         day: 'numeric'
       });
 
-      // Format the month name for display
-      const monthNames = [
-        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-      ];
-      const monthName = monthNames[parseInt(month) - 1];
-      const reportTitle = `Laporan Rekap Absensi - ${monthName} ${year}`;
+      // Format the date for display
+      const reportDate = selectedPrintDate.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const reportTitle = `Laporan Rekap Absensi - ${reportDate}`;
 
-      // Generate table rows for all records in the month
-      const tableRows = monthlyRecords.map((record, index) => {
+      // Generate table rows for all records in the selected date
+      const tableRows = dailyRecords.map((record, index) => {
         return `
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${index + 1}</td>
@@ -623,23 +591,23 @@ const AbsenApelPage = () => {
             <div class="stats">
               <div class="stat-item">
                 <div class="stat-label">Total Pegawai</div>
-                <div class="stat-value stat-total">${monthlyStats?.total || 0}</div>
+                <div class="stat-value stat-total">${dailyStats?.total || 0}</div>
               </div>
               <div class="stat-item">
                 <div class="stat-label">Hadir</div>
-                <div class="stat-value stat-present">${monthlyStats?.present || 0}</div>
+                <div class="stat-value stat-present">${dailyStats?.present || 0}</div>
               </div>
               <div class="stat-item">
                 <div class="stat-label">Tidak Hadir</div>
-                <div class="stat-value stat-absent">${monthlyStats?.absent || 0}</div>
+                <div class="stat-value stat-absent">${dailyStats?.absent || 0}</div>
               </div>
               <div class="stat-item">
                 <div class="stat-label">Tepat Waktu</div>
-                <div class="stat-value stat-present">${monthlyStats?.onTime || 0}</div>
+                <div class="stat-value stat-present">${dailyStats?.onTime || 0}</div>
               </div>
               <div class="stat-item">
                 <div class="stat-label">Terlambat</div>
-                <div class="stat-value stat-absent">${monthlyStats?.late || 0}</div>
+                <div class="stat-value stat-absent">${dailyStats?.late || 0}</div>
               </div>
             </div>
 
@@ -659,8 +627,8 @@ const AbsenApelPage = () => {
             </table>
 
             <div class="footer">
-              <p>Total Records: ${monthlyRecords?.length || 0}</p>
-              <p>Periode: ${monthName} ${year}</p>
+              <p>Total Records: ${dailyRecords?.length || 0}</p>
+              <p>Periode: ${reportDate}</p>
             </div>
           </body>
         </html>
@@ -683,7 +651,7 @@ const AbsenApelPage = () => {
       
       // Close the modal immediately
       setShowPrintModal(false);
-      setSelectedPrintMonth('');
+      setSelectedPrintDate(null);
 
       // Re-enable button
       if (printButton) {
@@ -712,38 +680,7 @@ const AbsenApelPage = () => {
 
   const handleCancelPrint = () => {
     setShowPrintModal(false);
-    setSelectedPrintMonth('');
-  };
-
-  // Generate month options based on available attendance data
-  const generateMonthOptions = () => {
-    if (!datesWithAttendance || datesWithAttendance.length === 0) return [];
-    
-    const monthsWithData = new Set<string>();
-    
-    // Extract unique year-month combinations from available dates
-    datesWithAttendance.forEach(dateString => {
-      const [year, month] = dateString.split('-');
-      monthsWithData.add(`${year}-${month}`);
-    });
-    
-    // Convert to array and sort in descending order (newest first)
-    const sortedMonths = Array.from(monthsWithData).sort((a, b) => b.localeCompare(a));
-    
-    const monthNames = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    
-    return sortedMonths.map(yearMonth => {
-      const [year, month] = yearMonth.split('-');
-      const monthName = monthNames[parseInt(month) - 1];
-      
-      return {
-        value: yearMonth,
-        label: `${monthName} ${year}`
-      };
-    });
+    setSelectedPrintDate(null);
   };
 
   return (
@@ -807,33 +744,43 @@ const AbsenApelPage = () => {
       {showPrintModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
           <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Cetak Laporan Bulanan</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Cetak Laporan Harian</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Pilih bulan untuk mencetak laporan kehadiran:
+              Pilih tanggal untuk mencetak laporan kehadiran:
             </p>
             
             <div className="mb-6">
-              <label htmlFor="month-select" className="block text-sm font-medium text-gray-700 mb-2">
-                Bulan:
+              <label htmlFor="print-date-picker" className="block text-sm font-medium text-gray-700 mb-2">
+                Tanggal:
               </label>
-              {generateMonthOptions().length === 0 ? (
+              {!datesWithAttendance || datesWithAttendance.length === 0 ? (
                 <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-md">
                   Tidak ada data kehadiran yang tersedia
                 </div>
               ) : (
-                <select
-                  id="month-select"
-                  value={selectedPrintMonth}
-                  onChange={(e) => setSelectedPrintMonth(e.target.value)}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="">-- Pilih Bulan --</option>
-                  {generateMonthOptions().map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <DatePicker
+                    id="print-date-picker"
+                    selected={selectedPrintDate}
+                    onChange={(date: Date | null) => setSelectedPrintDate(date)}
+                    dateFormat="dd MMMM yyyy"
+                    className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-10 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholderText="-- Pilih Tanggal --"
+                    filterDate={(date) => {
+                      if (!datesWithAttendance) return false;
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      const dateString = `${year}-${month}-${day}`;
+                      return datesWithAttendance.includes(dateString);
+                    }}
+                  />
+                  <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -846,7 +793,7 @@ const AbsenApelPage = () => {
               </button>
               <button
                 onClick={handleConfirmPrint}
-                disabled={!selectedPrintMonth || generateMonthOptions().length === 0}
+                disabled={!selectedPrintDate || !datesWithAttendance || datesWithAttendance.length === 0}
                 data-print-button
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
