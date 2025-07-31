@@ -327,6 +327,8 @@ const AttendanceTable = ({
 const AbsenApelPage = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [selectedPrintMonth, setSelectedPrintMonth] = useState<string>('');
 
   // React Query for attendance records with pagination
   const { 
@@ -397,178 +399,351 @@ const AbsenApelPage = () => {
   };
 
   const handlePrintReport = () => {
-    // Create a new window for printing
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    setShowPrintModal(true);
+  };
 
-    // Get current date for report generation
-    const currentDate = new Date().toLocaleDateString('id-ID', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const handleConfirmPrint = async () => {
+    if (!selectedPrintMonth) {
+      alert('Silakan pilih bulan terlebih dahulu');
+      return;
+    }
 
-    // Determine report title based on selected date
-    const reportTitle = selectedDate 
-      ? `Laporan Rekap Absensi - ${selectedDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
-      : 'Laporan Rekap Absensi - Semua Data';
+    try {
+      // Show loading state or disable button to prevent multiple clicks
+      const printButton = document.querySelector('[data-print-button]') as HTMLButtonElement;
+      if (printButton) {
+        printButton.disabled = true;
+        printButton.textContent = 'Memproses...';
+      }
 
-    // Generate table rows for all records (not just current page)
-    const tableRows = attendanceRecords.map((record, index) => {
-      return `
-        <tr>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${(currentPage - 1) * 10 + index + 1}</td>
-          <td style="padding: 8px; border: 1px solid #ddd;">${record.nama}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${record.nip}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${formatTimestamp(record.timestamp)}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
-            <span style="padding: 4px 8px; background-color: ${record.status?.toLowerCase().includes('tepat waktu') || (!record.status?.toLowerCase().includes('telat') && !record.status?.toLowerCase().includes('terlambat')) ? '#dcfce7' : '#fee2e2'}; color: ${record.status?.toLowerCase().includes('tepat waktu') || (!record.status?.toLowerCase().includes('telat') && !record.status?.toLowerCase().includes('terlambat')) ? '#166534' : '#991b1b'}; border-radius: 9999px; font-size: 12px; font-weight: 600;">
-              ${record.status}
-            </span>
-          </td>
-        </tr>
-      `;
-    }).join('');
+      // Parse the selected month (format: "YYYY-MM")
+      const [year, month] = selectedPrintMonth.split('-');
 
-    // Create the HTML content for printing
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${reportTitle}</title>
-          <style>
-            @media print {
-              @page {
-                margin: 1cm;
-                size: A4 landscape;
+      // Optimized: Get monthly data more efficiently by fetching larger batches
+      // and filtering based on available dates instead of day-by-day requests
+      const monthlyRecords: RekapAttendanceRecord[] = [];
+      let monthlyStats = {
+        total: 0,
+        present: 0,
+        absent: 0,
+        onTime: 0,
+        late: 0
+      };
+
+      // Filter available dates for the selected month
+      const monthDates = datesWithAttendance?.filter(dateString => {
+        const [dateYear, dateMonth] = dateString.split('-');
+        return dateYear === year && dateMonth === month.padStart(2, '0');
+      }) || [];
+
+      // Batch fetch data for all days that have attendance records
+      const batchPromises = monthDates.map(async (dateString) => {
+        const [y, m, d] = dateString.split('-');
+        const dayDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+        return getAttendanceForRekap(dayDate, 1, 1000);
+      });
+
+      // Execute all requests in parallel instead of sequentially
+      const batchResults = await Promise.all(batchPromises);
+      
+      // Combine all records
+      batchResults.forEach(result => {
+        if (result?.records) {
+          monthlyRecords.push(...result.records);
+        }
+      });
+
+      // Get stats more efficiently - just get it once for any day in the month
+      if (monthDates.length > 0) {
+        const [firstYear, firstMonth, firstDay] = monthDates[0].split('-');
+        const sampleDate = new Date(parseInt(firstYear), parseInt(firstMonth) - 1, parseInt(firstDay));
+        const firstDayStats = await getRekapStats(sampleDate);
+        const uniqueAttendees = new Set(monthlyRecords.map(r => r.nip));
+        
+        monthlyStats = {
+          total: firstDayStats.total,
+          present: uniqueAttendees.size,
+          absent: firstDayStats.total - uniqueAttendees.size,
+          onTime: monthlyRecords.filter(r => 
+            r.status?.toLowerCase().includes('tepat waktu') || 
+            (!r.status?.toLowerCase().includes('telat') && !r.status?.toLowerCase().includes('terlambat'))
+          ).length,
+          late: monthlyRecords.filter(r => 
+            r.status?.toLowerCase().includes('telat') || 
+            r.status?.toLowerCase().includes('terlambat')
+          ).length,
+        };
+      }
+
+      // Create print content immediately after data is ready
+      // Instead of opening a new window, create a hidden iframe for printing
+      const printFrame = document.createElement('iframe');
+      printFrame.style.position = 'absolute';
+      printFrame.style.top = '-10000px';
+      printFrame.style.left = '-10000px';
+      printFrame.style.width = '0';
+      printFrame.style.height = '0';
+      document.body.appendChild(printFrame);
+
+      const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+      if (!frameDoc) {
+        // Re-enable button if frame creation fails
+        if (printButton) {
+          printButton.disabled = false;
+          printButton.textContent = 'Cetak Laporan';
+        }
+        document.body.removeChild(printFrame);
+        return;
+      }
+
+      // Get current date for report generation
+      const currentDate = new Date().toLocaleDateString('id-ID', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      // Format the month name for display
+      const monthNames = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      const monthName = monthNames[parseInt(month) - 1];
+      const reportTitle = `Laporan Rekap Absensi - ${monthName} ${year}`;
+
+      // Generate table rows for all records in the month
+      const tableRows = monthlyRecords.map((record, index) => {
+        return `
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${index + 1}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${record.nama}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${record.nip}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${formatTimestamp(record.timestamp)}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+              <span style="padding: 4px 8px; background-color: ${record.status?.toLowerCase().includes('tepat waktu') || (!record.status?.toLowerCase().includes('telat') && !record.status?.toLowerCase().includes('terlambat')) ? '#dcfce7' : '#fee2e2'}; color: ${record.status?.toLowerCase().includes('tepat waktu') || (!record.status?.toLowerCase().includes('telat') && !record.status?.toLowerCase().includes('terlambat')) ? '#166534' : '#991b1b'}; border-radius: 9999px; font-size: 12px; font-weight: 600;">
+                ${record.status}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Create the HTML content for printing
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${reportTitle}</title>
+            <style>
+              @media print {
+                @page {
+                  margin: 1cm;
+                  size: A4 landscape;
+                }
+                body {
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
+                }
               }
               body {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                color: #333;
               }
-            }
-            body {
-              font-family: Arial, sans-serif;
-              margin: 0;
-              padding: 20px;
-              color: #333;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 20px;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 24px;
-              font-weight: bold;
-            }
-            .header p {
-              margin: 5px 0;
-              font-size: 14px;
-            }
-            .stats {
-              display: flex;
-              justify-content: space-around;
-              margin: 30px 0;
-              background-color: #f8f9fa;
-              padding: 20px;
-              border-radius: 8px;
-            }
-            .stat-item {
-              text-align: center;
-            }
-            .stat-label {
-              font-size: 14px;
-              color: #666;
-              margin-bottom: 5px;
-            }
-            .stat-value {
-              font-size: 24px;
-              font-weight: bold;
-            }
-            .stat-total { color: #333; }
-            .stat-present { color: #22c55e; }
-            .stat-absent { color: #ef4444; }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin: 20px 0;
-            }
-            th, td {
-              padding: 12px 8px;
-              border: 1px solid #ddd;
-              text-align: left;
-            }
-            th {
-              background-color: #f8f9fa;
-              font-weight: bold;
-              text-align: center;
-            }
-            .footer {
-              margin-top: 40px;
-              border-top: 1px solid #ddd;
-              padding-top: 20px;
-              font-size: 12px;
-              color: #666;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>${reportTitle}</h1>
-            <p>Tanggal Cetak: ${currentDate}</p>
-          </div>
-          
-          <div class="stats">
-            <div class="stat-item">
-              <div class="stat-label">Total Pegawai</div>
-              <div class="stat-value stat-total">${statsData.total}</div>
+              .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #333;
+                padding-bottom: 20px;
+              }
+              .header h1 {
+                margin: 0;
+                font-size: 24px;
+                font-weight: bold;
+              }
+              .header p {
+                margin: 5px 0;
+                font-size: 14px;
+              }
+              .stats {
+                display: flex;
+                justify-content: space-around;
+                margin: 30px 0;
+                background-color: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+              }
+              .stat-item {
+                text-align: center;
+              }
+              .stat-label {
+                font-size: 14px;
+                color: #666;
+                margin-bottom: 5px;
+              }
+              .stat-value {
+                font-size: 24px;
+                font-weight: bold;
+              }
+              .stat-total { color: #333; }
+              .stat-present { color: #22c55e; }
+              .stat-absent { color: #ef4444; }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+              }
+              th, td {
+                padding: 12px 8px;
+                border: 1px solid #ddd;
+                text-align: left;
+              }
+              th {
+                background-color: #f8f9fa;
+                font-weight: bold;
+                text-align: center;
+              }
+              .footer {
+                margin-top: 40px;
+                border-top: 1px solid #ddd;
+                padding-top: 20px;
+                font-size: 12px;
+                color: #666;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>${reportTitle}</h1>
+              <p>Tanggal Cetak: ${currentDate}</p>
             </div>
-            <div class="stat-item">
-              <div class="stat-label">Hadir</div>
-              <div class="stat-value stat-present">${statsData.present}</div>
+            
+            <div class="stats">
+              <div class="stat-item">
+                <div class="stat-label">Total Pegawai</div>
+                <div class="stat-value stat-total">${monthlyStats?.total || 0}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Hadir</div>
+                <div class="stat-value stat-present">${monthlyStats?.present || 0}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Tidak Hadir</div>
+                <div class="stat-value stat-absent">${monthlyStats?.absent || 0}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Tepat Waktu</div>
+                <div class="stat-value stat-present">${monthlyStats?.onTime || 0}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Terlambat</div>
+                <div class="stat-value stat-absent">${monthlyStats?.late || 0}</div>
+              </div>
             </div>
-            <div class="stat-item">
-              <div class="stat-label">Tidak Hadir</div>
-              <div class="stat-value stat-absent">${statsData.absent}</div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 5%;">No</th>
+                  <th style="width: 30%;">Nama</th>
+                  <th style="width: 15%;">NIP</th>
+                  <th style="width: 30%;">Waktu Absen</th>
+                  <th style="width: 20%;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+
+            <div class="footer">
+              <p>Total Records: ${monthlyRecords?.length || 0}</p>
+              <p>Periode: ${monthName} ${year}</p>
             </div>
-          </div>
+          </body>
+        </html>
+      `;
 
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 5%;">No</th>
-                <th style="width: 35%;">Nama</th>
-                <th style="width: 20%;">NIP</th>
-                <th style="width: 20%;">Waktu Absen</th>
-                <th style="width: 20%;">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableRows}
-            </tbody>
-          </table>
+      // Write content to iframe and trigger print immediately
+      frameDoc.write(printContent);
+      frameDoc.close();
+      
+      // Trigger print immediately without waiting for onload
+      printFrame.contentWindow?.focus();
+      printFrame.contentWindow?.print();
+      
+      // Clean up the iframe after a short delay
+      setTimeout(() => {
+        if (document.body.contains(printFrame)) {
+          document.body.removeChild(printFrame);
+        }
+      }, 1000);
+      
+      // Close the modal immediately
+      setShowPrintModal(false);
+      setSelectedPrintMonth('');
 
-          <div class="footer">
-            <p>Total Records: ${attendanceRecords.length}</p>
-          </div>
-        </body>
-      </html>
-    `;
+      // Re-enable button
+      if (printButton) {
+        printButton.disabled = false;
+        printButton.textContent = 'Cetak Laporan';
+      }
 
-    // Write content to print window and trigger print
-    printWindow.document.write(printContent);
-    printWindow.document.close();
+    } catch (error) {
+      console.error('Error generating report:', error);
+      alert('Terjadi kesalahan saat membuat laporan');
+      
+      // Re-enable button on error
+      const printButton = document.querySelector('[data-print-button]') as HTMLButtonElement;
+      if (printButton) {
+        printButton.disabled = false;
+        printButton.textContent = 'Cetak Laporan';
+      }
+      
+      // Clean up any created iframe
+      const existingFrame = document.querySelector('iframe[style*="position: absolute"]') as HTMLIFrameElement;
+      if (existingFrame && document.body.contains(existingFrame)) {
+        document.body.removeChild(existingFrame);
+      }
+    }
+  };
+
+  const handleCancelPrint = () => {
+    setShowPrintModal(false);
+    setSelectedPrintMonth('');
+  };
+
+  // Generate month options based on available attendance data
+  const generateMonthOptions = () => {
+    if (!datesWithAttendance || datesWithAttendance.length === 0) return [];
     
-    // Wait for content to load then print
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    };
+    const monthsWithData = new Set<string>();
+    
+    // Extract unique year-month combinations from available dates
+    datesWithAttendance.forEach(dateString => {
+      const [year, month] = dateString.split('-');
+      monthsWithData.add(`${year}-${month}`);
+    });
+    
+    // Convert to array and sort in descending order (newest first)
+    const sortedMonths = Array.from(monthsWithData).sort((a, b) => b.localeCompare(a));
+    
+    const monthNames = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    
+    return sortedMonths.map(yearMonth => {
+      const [year, month] = yearMonth.split('-');
+      const monthName = monthNames[parseInt(month) - 1];
+      
+      return {
+        value: yearMonth,
+        label: `${monthName} ${year}`
+      };
+    });
   };
 
   return (
@@ -627,6 +802,60 @@ const AbsenApelPage = () => {
           />
         </main>
       </div>
+
+      {/* Print Modal */}
+      {showPrintModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+          <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Cetak Laporan Bulanan</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Pilih bulan untuk mencetak laporan kehadiran:
+            </p>
+            
+            <div className="mb-6">
+              <label htmlFor="month-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Bulan:
+              </label>
+              {generateMonthOptions().length === 0 ? (
+                <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-md">
+                  Tidak ada data kehadiran yang tersedia
+                </div>
+              ) : (
+                <select
+                  id="month-select"
+                  value={selectedPrintMonth}
+                  onChange={(e) => setSelectedPrintMonth(e.target.value)}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">-- Pilih Bulan --</option>
+                  {generateMonthOptions().map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={handleCancelPrint}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleConfirmPrint}
+                disabled={!selectedPrintMonth || generateMonthOptions().length === 0}
+                data-print-button
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cetak Laporan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
