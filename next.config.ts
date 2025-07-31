@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
     ],
     dangerouslyAllowSVG: true,
   },
+  transpilePackages: ['react-datepicker'],
+  experimental: {
+    esmExternals: 'loose'
+  }
 };
 
 export default nextConfig;

@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import dynamic from 'next/dynamic';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import Image from 'next/image';
@@ -16,6 +15,16 @@ import {
   getAttendancePhotos,
   type AttendanceRecord
 } from './actions';
+
+// Dynamic import for DatePicker to avoid SSR issues
+const DatePickerWrapper = dynamic(() => import('../components/DatePickerWrapper'), {
+  ssr: false,
+  loading: () => (
+    <div className="block w-full rounded-md border border-gray-400 shadow-sm p-2 bg-gray-100 animate-pulse">
+      Loading calendar...
+    </div>
+  )
+});
 
 // Loading skeleton component
 const TableSkeleton = () => (
@@ -242,9 +251,9 @@ const VerifikasiPage = () => {
   const getVerifiedStatus = (verifiedStatus: string) => {
     switch (verifiedStatus) {
       case 'approved':
-        return { text: 'Diterima', bgColor: 'bg-red-200', textColor: 'text-red-800', disabled: true };
+        return { text: 'Diterima', bgColor: 'bg-green-200', textColor: 'text-green-800', disabled: true };
       case 'rejected':
-        return { text: 'Ditolak', bgColor: 'bg-green-200', textColor: 'text-green-800', disabled: true };
+        return { text: 'Ditolak', bgColor: 'bg-red-200', textColor: 'text-red-800', disabled: true };
       default:
         return { text: 'Verifikasi!', bgColor: '', textColor: '', disabled: false };
     }
@@ -265,7 +274,7 @@ const VerifikasiPage = () => {
             </label>
             {/* Pop-up Calendar Date Picker with Arrow and Gray Outline */}
             <div className="relative w-48">
-              <DatePicker
+              <DatePickerWrapper
                 id="date-picker"
                 selected={selectedDate}
                 onChange={handleDateChange}
@@ -273,7 +282,7 @@ const VerifikasiPage = () => {
                 className="block w-full rounded-md border border-gray-400 shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50 p-2 pr-10"
                 placeholderText="Semua tanggal"
                 isClearable
-                filterDate={(date) => {
+                filterDate={(date: Date) => {
                   if (!datesWithAttendanceData) return true;
                   const year = date.getFullYear();
                   const month = String(date.getMonth() + 1).padStart(2, '0');
