@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import { 
@@ -775,7 +777,7 @@ const AbsenApelPage = () => {
                     dateFormat="dd MMMM yyyy"
                     className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-10 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     placeholderText="-- Pilih Tanggal --"
-                    filterDate={(date) => {
+                    filterDate={(date: Date) => {
                       if (!datesWithAttendance) return false;
                       const year = date.getFullYear();
                       const month = String(date.getMonth() + 1).padStart(2, '0');

@@ -12,7 +12,6 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: ['react-datepicker'],
   experimental: {
-    esmExternals: 'loose'
   }
 };
 
