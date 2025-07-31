@@ -404,9 +404,12 @@ export async function getAttendanceByNip(nip: string, date?: Date): Promise<Atte
   }
 }
 
-// Storage Management Functions - "Time Bomb" for cleaning old photos
+// ================================
+// STORAGE MANAGEMENT FUNCTIONS
+// ================================
+// "Time Bomb" system for automated cleanup of old photos
 
-export async function getAttendancePhotoStats() {
+export async function getAttendancePhotoStats(testMode = false) {
   try {
     // Get total records with photos
     const totalWithPhotos = await db
@@ -414,20 +417,28 @@ export async function getAttendancePhotoStats() {
       .from(attendanceTable)
       .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != ''`);
 
-    // Get old records (3+ months) with photos
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    const threeMonthsAgoTimestamp = threeMonthsAgo.getTime();
+    // Get old records with photos - use different time periods for testing
+    const cutoffDate = new Date();
+    if (testMode) {
+      // Test mode: 1 day ago
+      cutoffDate.setDate(cutoffDate.getDate() - 1);
+    } else {
+      // Production mode: 3 months ago
+      cutoffDate.setMonth(cutoffDate.getMonth() - 3);
+    }
+    const cutoffTimestamp = cutoffDate.getTime();
     
     const oldWithPhotos = await db
       .select({ count: sql<number>`count(*)` })
       .from(attendanceTable)
-      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != '' AND ${attendanceTable.timestamp} < ${threeMonthsAgoTimestamp}`);
+      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != '' AND ${attendanceTable.timestamp} < ${cutoffTimestamp}`);
 
     // Estimate storage size (rough calculation)
     const avgPhotoSizeKB = 750; // Average photo size in KB
     const totalStorageKB = (totalWithPhotos[0]?.count || 0) * avgPhotoSizeKB;
     const oldStorageKB = (oldWithPhotos[0]?.count || 0) * avgPhotoSizeKB;
+
+    const timeLabel = testMode ? '1 hari' : '3 bulan';
 
     return {
       totalRecordsWithPhotos: totalWithPhotos[0]?.count || 0,
@@ -435,7 +446,9 @@ export async function getAttendancePhotoStats() {
       totalStorageKB,
       oldStorageKB,
       potentialSavingsKB: oldStorageKB,
-      cutoffDate: threeMonthsAgo.toLocaleDateString('id-ID')
+      cutoffDate: cutoffDate.toLocaleDateString('id-ID'),
+      testMode,
+      timeLabel
     };
   } catch (error) {
     console.error('Failed to get storage stats:', error);
@@ -443,21 +456,30 @@ export async function getAttendancePhotoStats() {
   }
 }
 
-export async function cleanupOldAttendancePhotos() {
+export async function cleanupOldAttendancePhotos(testMode = false) {
   try {
-    // Calculate cutoff date (3 months ago)
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    const threeMonthsAgoTimestamp = threeMonthsAgo.getTime();
+    // Calculate cutoff date - different for testing vs production
+    const cutoffDate = new Date();
+    if (testMode) {
+      // Test mode: 1 day ago
+      cutoffDate.setDate(cutoffDate.getDate() - 1);
+    } else {
+      // Production mode: 3 months ago
+      cutoffDate.setMonth(cutoffDate.getMonth() - 3);
+    }
+    const cutoffTimestamp = cutoffDate.getTime();
+    
+    const timeLabel = testMode ? '1 hari' : '3 bulan';
     
     console.log('🕐 Starting storage cleanup...');
-    console.log('📅 Cutoff date:', threeMonthsAgo.toLocaleDateString('id-ID'));
+    console.log('📅 Cutoff date:', cutoffDate.toLocaleDateString('id-ID'));
+    console.log('⚙️ Mode:', testMode ? 'TEST (1 week)' : 'PRODUCTION (3 months)');
 
     // Get count of records that will be affected
     const oldRecords = await db
       .select({ count: sql<number>`count(*)` })
       .from(attendanceTable)
-      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != '' AND ${attendanceTable.timestamp} < ${threeMonthsAgoTimestamp}`);
+      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != '' AND ${attendanceTable.timestamp} < ${cutoffTimestamp}`);
 
     const recordsToClean = oldRecords[0]?.count || 0;
     console.log('📊 Found', recordsToClean, 'old records with photos');
@@ -467,7 +489,7 @@ export async function cleanupOldAttendancePhotos() {
       return {
         success: true,
         recordsCleaned: 0,
-        message: 'No old photos found to clean'
+        message: `Tidak ada foto lama (${timeLabel}) yang perlu dibersihkan`
       };
     }
 
@@ -483,7 +505,7 @@ export async function cleanupOldAttendancePhotos() {
     await db
       .update(attendanceTable)
       .set({ photo: null })
-      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != '' AND ${attendanceTable.timestamp} < ${threeMonthsAgoTimestamp}`);
+      .where(sql`${attendanceTable.photo} IS NOT NULL AND ${attendanceTable.photo} != '' AND ${attendanceTable.timestamp} < ${cutoffTimestamp}`);
 
     console.log('🗑️ Successfully removed photos from', recordsToClean, 'records');
     console.log('💾 Estimated space saved:', estimatedSavingsMB, 'MB');
@@ -493,7 +515,7 @@ export async function cleanupOldAttendancePhotos() {
       success: true,
       recordsCleaned: recordsToClean,
       estimatedSavingsMB: parseFloat(estimatedSavingsMB),
-      message: `Successfully cleaned ${recordsToClean} old photos, saving approximately ${estimatedSavingsMB} MB`
+      message: `Berhasil membersihkan ${recordsToClean.toLocaleString()} foto lama (${timeLabel}) dan menghemat sekitar ${estimatedSavingsMB} MB`
     };
   } catch (error) {
     console.error('❌ Storage cleanup failed:', error);

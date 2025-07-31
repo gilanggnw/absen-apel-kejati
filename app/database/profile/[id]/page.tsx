@@ -3,12 +3,21 @@
 import React, { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import NextImage from 'next/image';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { getEmployeeById, getAttendanceHistoryByNip, type AttendanceHistoryRecord } from '../../actions';
 import Sidebar from '../../../components/Sidebar';
 import Header from '../../../components/Header';
+
+// Dynamic import for DatePicker to avoid SSR issues
+const DatePickerWrapper = dynamic(() => import('../../../components/DatePickerWrapper'), {
+  ssr: false,
+  loading: () => (
+    <div className="block w-full rounded-md border border-gray-400 shadow-sm p-2 bg-gray-100 animate-pulse">
+      Loading calendar...
+    </div>
+  )
+});
 
 // Loading skeleton components
 const EmployeeInfoSkeleton = () => (
@@ -310,7 +319,7 @@ const ProfilePage = () => {
                                 Pilih Bulan & Tahun:
                             </label>
                             <div className="relative w-44">
-                                <DatePicker
+                                <DatePickerWrapper
                                     selected={selectedMonth}
                                     onChange={(date: Date | null) => {
                                         console.log('Date picker changed to:', date);
@@ -325,7 +334,6 @@ const ProfilePage = () => {
                                     placeholderText="Pilih bulan & tahun"
                                     isClearable
                                     popperClassName="custom-datepicker-popper"
-                                    wrapperClassName="w-full"
                                 />
                             </div>
                         </div>

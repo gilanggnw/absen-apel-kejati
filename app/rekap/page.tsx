@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import dynamic from 'next/dynamic';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import { 
@@ -13,6 +12,16 @@ import {
   type RekapAttendanceRecord,
   type RekapStats 
 } from './actions';
+
+// Dynamic import for DatePicker to avoid SSR issues
+const DatePickerWrapper = dynamic(() => import('../components/DatePickerWrapper'), {
+  ssr: false,
+  loading: () => (
+    <div className="block w-full rounded-md border border-gray-400 shadow-sm p-2 bg-gray-100 animate-pulse">
+      Loading calendar...
+    </div>
+  )
+});
 
 // Skeleton Components
 const StatsSkeleton = () => (
@@ -694,7 +703,7 @@ const AbsenApelPage = () => {
               Pilih Tanggal:
             </label>
             <div className="relative w-48">
-              <DatePicker
+              <DatePickerWrapper
                 id="date-picker"
                 selected={selectedDate}
                 onChange={handleDateChange}
@@ -702,7 +711,7 @@ const AbsenApelPage = () => {
                 className="block w-full rounded-md border border-gray-400 shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50 p-2 pr-10"
                 placeholderText="Semua tanggal"
                 isClearable
-                filterDate={(date) => {
+                filterDate={(date: Date) => {
                   if (!datesWithAttendance) return true;
                   const year = date.getFullYear();
                   const month = String(date.getMonth() + 1).padStart(2, '0');

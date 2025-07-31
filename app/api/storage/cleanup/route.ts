@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cleanupOldAttendancePhotos } from '../../../database/actions';
 
-// Global state for automation (in production, use Redis or database)
+// ================================
+// GLOBAL AUTOMATION STATE
+// ================================
+// In production, use Redis or database for persistence
 let automationInterval: NodeJS.Timeout | null = null;
 let isAutomationRunning = false;
 let isCleanupRunning = false;
+let automationTestMode = false;
 
+// ================================
+// CORE CLEANUP FUNCTION
+// ================================
 async function performAutomatedCleanup() {
+  // Prevent concurrent cleanups
   if (isCleanupRunning) {
     console.log('⏳ Cleanup already in progress, skipping...');
     return;
@@ -14,29 +22,105 @@ async function performAutomatedCleanup() {
 
   try {
     isCleanupRunning = true;
-    console.log('🕐 [' + new Date().toISOString() + '] Starting automated storage cleanup...');
+    const timestamp = new Date().toISOString();
+    const mode = automationTestMode ? 'TEST (1 day)' : 'PRODUCTION (3 months)';
     
-    const result = await cleanupOldAttendancePhotos();
+    console.log(`🕐 [${timestamp}] Starting automated storage cleanup...`);
+    console.log(`⚙️ Automation mode: ${mode}`);
+    
+    const result = await cleanupOldAttendancePhotos(automationTestMode);
     
     if (result.success) {
-      console.log(`✅ [${new Date().toISOString()}] Automated storage cleanup completed successfully`);
+      console.log(`✅ [${timestamp}] Automated storage cleanup completed successfully`);
       console.log(`📊 Records cleaned: ${result.recordsCleaned}`);
       console.log(`💾 Space saved: ${result.estimatedSavingsMB} MB`);
+    } else {
+      console.log(`ℹ️ [${timestamp}] No cleanup needed: ${result.message}`);
     }
   } catch (error) {
-    console.error('❌ [' + new Date().toISOString() + '] Automated storage cleanup failed:', error);
+    console.error(`❌ [${new Date().toISOString()}] Automated storage cleanup failed:`, error);
   } finally {
     isCleanupRunning = false;
   }
 }
 
+// ================================
+// AUTOMATION CONTROL HELPERS
+// ================================
+async function startAutomation(runImmediately: boolean, testInterval: boolean) {
+  // Set test mode for automation
+  automationTestMode = testInterval;
+  
+  // Run immediate cleanup if requested
+  if (runImmediately) {
+    console.log('🚀 Starting automation with immediate first run');
+    await performAutomatedCleanup();
+  }
+
+  // Configure interval timing
+  const intervalMs = testInterval ? 5 * 60 * 1000 : 24 * 60 * 60 * 1000; // 5min vs 24h
+  const intervalLabel = testInterval ? '5-minute' : '24-hour';
+  const cutoffLabel = automationTestMode ? '1-day' : '3-month';
+
+  // Start the automation timer
+  automationInterval = setInterval(performAutomatedCleanup, intervalMs);
+  isAutomationRunning = true;
+  
+  console.log(`🚀 Storage automation started with ${intervalLabel} interval`);
+  console.log(`🔧 Automation will use ${cutoffLabel} cutoff for photo deletion`);
+  
+  return {
+    success: true,
+    message: runImmediately 
+      ? `Automation started with immediate cleanup completed (${intervalLabel} interval)`
+      : `Automation started successfully (${intervalLabel} interval)`,
+    isRunning: true,
+    immediateRun: runImmediately,
+    testMode: testInterval
+  };
+}
+
+function stopAutomation() {
+  if (automationInterval) {
+    clearInterval(automationInterval);
+    automationInterval = null;
+  }
+  isAutomationRunning = false;
+  automationTestMode = false;
+  
+  console.log('🛑 Storage automation stopped');
+  
+  return {
+    success: true,
+    message: 'Automation stopped successfully',
+    isRunning: false
+  };
+}
+
+function getAutomationStatus() {
+  const mode = automationTestMode ? '1-day test mode' : '3-month production mode';
+  
+  return {
+    success: true,
+    isRunning: isAutomationRunning,
+    isCleanupRunning,
+    testMode: automationTestMode,
+    message: isAutomationRunning 
+      ? `Automation is running (${mode})`
+      : 'Automation is stopped'
+  };
+}
+
+// ================================
+// API ROUTE HANDLERS
+// ================================
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
 
   try {
     switch (action) {
-      case 'start':
+      case 'start': {
         if (isAutomationRunning) {
           return NextResponse.json({
             success: false,
@@ -44,46 +128,30 @@ export async function GET(request: NextRequest) {
           });
         }
 
-        // Start automation with 24-hour intervals
-        automationInterval = setInterval(performAutomatedCleanup, 24 * 60 * 60 * 1000);
-        isAutomationRunning = true;
+        const runImmediately = searchParams.get('immediate') === 'true';
+        const testInterval = searchParams.get('testInterval') === 'true';
         
-        console.log('🚀 Storage automation started');
-        return NextResponse.json({
-          success: true,
-          message: 'Automation started successfully',
-          isRunning: true
-        });
+        const result = await startAutomation(runImmediately, testInterval);
+        return NextResponse.json(result);
+      }
 
-      case 'stop':
-        if (automationInterval) {
-          clearInterval(automationInterval);
-          automationInterval = null;
-        }
-        isAutomationRunning = false;
-        
-        console.log('🛑 Storage automation stopped');
-        return NextResponse.json({
-          success: true,
-          message: 'Automation stopped successfully',
-          isRunning: false
-        });
+      case 'stop': {
+        const result = stopAutomation();
+        return NextResponse.json(result);
+      }
 
-      case 'status':
-        return NextResponse.json({
-          success: true,
-          isRunning: isAutomationRunning,
-          isCleanupRunning,
-          message: isAutomationRunning ? 'Automation is running' : 'Automation is stopped'
-        });
+      case 'status': {
+        const result = getAutomationStatus();
+        return NextResponse.json(result);
+      }
 
-      case 'trigger':
-        // Manual trigger for immediate cleanup
+      case 'trigger': {
         await performAutomatedCleanup();
         return NextResponse.json({
           success: true,
           message: 'Manual cleanup triggered successfully'
         });
+      }
 
       default:
         return NextResponse.json({
@@ -101,28 +169,30 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // Handle POST requests for trigger action
-  const { searchParams } = new URL(request.url);
-  const action = searchParams.get('action');
+  try {
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
 
-  if (action === 'trigger') {
-    try {
-      await performAutomatedCleanup();
-      return NextResponse.json({
-        success: true,
-        message: 'Manual cleanup triggered successfully'
-      });
-    } catch (error) {
-      console.error('Manual cleanup failed:', error);
-      return NextResponse.json({
-        success: false,
-        message: 'Manual cleanup failed'
-      }, { status: 500 });
+    switch (action) {
+      case 'trigger': {
+        await performAutomatedCleanup();
+        return NextResponse.json({
+          success: true,
+          message: 'Manual cleanup triggered successfully'
+        });
+      }
+
+      default:
+        return NextResponse.json({
+          success: false,
+          message: 'Invalid action for POST request. Use: trigger'
+        }, { status: 400 });
     }
+  } catch (error) {
+    console.error('Manual cleanup failed:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Manual cleanup failed'
+    }, { status: 500 });
   }
-
-  return NextResponse.json({
-    success: false,
-    message: 'Invalid action for POST request'
-  }, { status: 400 });
 }
