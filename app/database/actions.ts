@@ -338,10 +338,11 @@ export async function getAttendanceHistoryByNip(nip: string, startDate?: Date, e
 
     // Apply date filtering if provided
     if (startDate && endDate) {
+      // Use UTC to avoid timezone issues between localhost and Vercel
       const startOfDay = new Date(startDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      startOfDay.setUTCHours(0, 0, 0, 0);
       const endOfDay = new Date(endDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      endOfDay.setUTCHours(23, 59, 59, 999);
       
       whereConditions = and(
         whereConditions,
@@ -386,15 +387,39 @@ export async function getAttendanceHistoryByNip(nip: string, startDate?: Date, e
 
 export async function getAttendanceByNip(nip: string, date?: Date): Promise<AttendanceRecord[]> {
   try {
-    const startOfDay = date ? new Date(date).setHours(0, 0, 0, 0) : new Date().setHours(0, 0, 0, 0);
-    const endOfDay = date ? new Date(date).setHours(23, 59, 59, 999) : new Date().setHours(23, 59, 59, 999);
+    let startOfDay: number;
+    let endOfDay: number;
+
+    if (date) {
+      // Create new date objects to avoid mutating the original
+      const start = new Date(date);
+      start.setUTCHours(0, 0, 0, 0);
+      startOfDay = start.getTime();
+      
+      const end = new Date(date);
+      end.setUTCHours(23, 59, 59, 999);
+      endOfDay = end.getTime();
+    } else {
+      // Use current date in UTC
+      const now = new Date();
+      const start = new Date(now);
+      start.setUTCHours(0, 0, 0, 0);
+      startOfDay = start.getTime();
+      
+      const end = new Date(now);
+      end.setUTCHours(23, 59, 59, 999);
+      endOfDay = end.getTime();
+    }
 
     const records = await db
       .select()
       .from(attendanceTable)
       .where(
-        // Filter by NIP and date range
-        sql`${attendanceTable.nip} = ${nip} AND ${attendanceTable.timestamp} >= ${startOfDay} AND ${attendanceTable.timestamp} <= ${endOfDay}`
+        and(
+          eq(attendanceTable.nip, nip),
+          gte(attendanceTable.timestamp, startOfDay),
+          lte(attendanceTable.timestamp, endOfDay)
+        )
       );
 
     return records;

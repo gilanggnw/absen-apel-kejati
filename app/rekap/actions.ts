@@ -49,10 +49,11 @@ export async function getAttendanceForRekap(
     // Execute queries with or without date filter
     let records, totalResult;
     if (selectedDate) {
+      // Use UTC to avoid timezone issues between localhost and Vercel
       const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      startOfDay.setUTCHours(0, 0, 0, 0);
       const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      endOfDay.setUTCHours(23, 59, 59, 999);
 
       const dateFilter = and(
         gte(attendanceTable.timestamp, startOfDay.getTime()),
@@ -106,10 +107,11 @@ export async function getRekapStats(selectedDate?: Date): Promise<RekapStats> {
     // Get attendance records based on date filter
     let attendanceRecords;
     if (selectedDate) {
+      // Use UTC to avoid timezone issues between localhost and Vercel
       const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      startOfDay.setUTCHours(0, 0, 0, 0);
       const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      endOfDay.setUTCHours(23, 59, 59, 999);
 
       attendanceRecords = await db
         .select({
@@ -168,13 +170,13 @@ export async function getDatesWithAttendanceRecordsForRekap(): Promise<string[]>
       })
       .from(attendanceTable);
 
-    // Convert timestamps to date strings (YYYY-MM-DD format) considering local timezone
+    // Convert timestamps to date strings (YYYY-MM-DD format) using UTC to avoid timezone issues
     const datesWithRecords = records.map(record => {
       const date = new Date(record.timestamp);
-      // Use local date to avoid timezone issues
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
+      // Use UTC methods to ensure consistent behavior between localhost and Vercel
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     });
 

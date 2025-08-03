@@ -59,10 +59,11 @@ export async function getAttendanceForVerification(
         const conditions = [];
         
         if (date) {
+          // Use UTC to avoid timezone issues between localhost and Vercel
           const startOfDay = new Date(date);
-          startOfDay.setHours(0, 0, 0, 0);
+          startOfDay.setUTCHours(0, 0, 0, 0);
           const endOfDay = new Date(date);
-          endOfDay.setHours(23, 59, 59, 999);
+          endOfDay.setUTCHours(23, 59, 59, 999);
           
           conditions.push(
             and(
@@ -287,13 +288,13 @@ export async function getDatesWithAttendanceRecords(): Promise<string[]> {
           })
           .from(attendanceTable);
 
-        // Convert timestamps to date strings (YYYY-MM-DD format) considering local timezone
+        // Convert timestamps to date strings (YYYY-MM-DD format) using UTC to avoid timezone issues
         const datesWithRecords = records.map(record => {
           const date = new Date(record.timestamp);
-          // Use local date to avoid timezone issues
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
+          // Use UTC methods to ensure consistent behavior between localhost and Vercel
+          const year = date.getUTCFullYear();
+          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(date.getUTCDate()).padStart(2, '0');
           return `${year}-${month}-${day}`;
         });
 
