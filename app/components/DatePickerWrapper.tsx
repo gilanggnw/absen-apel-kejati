@@ -18,6 +18,7 @@ interface DatePickerWrapperProps {
   scrollableYearDropdown?: boolean;
   popperClassName?: string;
   wrapperClassName?: string;
+  renderDayContents?: (day: number, date?: Date) => React.ReactNode;
 }
 
 const DatePickerWrapper: React.FC<DatePickerWrapperProps> = (props) => {

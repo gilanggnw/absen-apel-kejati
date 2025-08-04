@@ -12,6 +12,7 @@ import {
   updateVerificationStatus, 
   getAttendanceStats,
   getDatesWithAttendanceRecords,
+  getDatesWithPendingRequests,
   getAttendancePhotos,
   type AttendanceRecord
 } from './actions-mysql';
@@ -128,22 +129,29 @@ const VerifikasiPage = () => {
   const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
     queryKey: ['attendance-verification', selectedDate?.toISOString(), currentPage],
     queryFn: () => getAttendanceForVerification(selectedDate || undefined, currentPage, 10),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
+    staleTime: 0, // Always consider data stale for immediate updates
+    gcTime: 1000 * 60 * 5, // 5 minutes garbage collection
   });
 
   const { data: stats } = useQuery<{ total: number; approved: number; pending: number; rejected: number }>({
     queryKey: ['attendance-stats'],
     queryFn: getAttendanceStats,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 15, // 15 minutes garbage collection
+    staleTime: 0, // Always consider data stale for immediate updates
+    gcTime: 1000 * 60 * 5, // 5 minutes garbage collection
   });
 
   const { data: datesWithAttendance } = useQuery<string[]>({
     queryKey: ['dates-attendance'],
     queryFn: getDatesWithAttendanceRecords,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 15, // 15 minutes garbage collection
+    staleTime: 1000 * 30, // 30 seconds for dates (less frequently changing)
+    gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
+  });
+
+  const { data: datesWithPending } = useQuery<string[]>({
+    queryKey: ['dates-pending'],
+    queryFn: getDatesWithPendingRequests,
+    staleTime: 1000 * 30, // 30 seconds for pending dates
+    gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
   });
 
   // Extracted data with defaults
@@ -151,6 +159,7 @@ const VerifikasiPage = () => {
   const totalPages = attendanceData?.totalPages || 0;
   const statsData = stats || { total: 0, approved: 0, pending: 0, rejected: 0 };
   const datesWithAttendanceData: string[] = datesWithAttendance || [];
+  const datesWithPendingData: string[] = datesWithPending || [];
 
   const handleVerifikasiClick = async (record: AttendanceRecord) => {
     setSelectedRecord(record);
@@ -183,10 +192,18 @@ const VerifikasiPage = () => {
       );
 
       if (result.success) {
-        // Invalidate and refetch queries
-        queryClient.invalidateQueries({ queryKey: ['attendance-verification'] });
-        queryClient.invalidateQueries({ queryKey: ['attendance-stats'] });
-        queryClient.invalidateQueries({ queryKey: ['dates-pending'] });
+        // Invalidate and refetch all related queries immediately
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['attendance-verification'] }),
+          queryClient.invalidateQueries({ queryKey: ['attendance-stats'] }),
+          queryClient.invalidateQueries({ queryKey: ['dates-pending'] }),
+          queryClient.invalidateQueries({ queryKey: ['dates-attendance'] }),
+        ]);
+        
+        // Force immediate refetch for critical data
+        await queryClient.refetchQueries({ queryKey: ['attendance-verification'] });
+        await queryClient.refetchQueries({ queryKey: ['attendance-stats'] });
+        
         handleCloseDialog();
       }
     } catch (error) {
@@ -205,10 +222,18 @@ const VerifikasiPage = () => {
       );
 
       if (result.success) {
-        // Invalidate and refetch queries
-        queryClient.invalidateQueries({ queryKey: ['attendance-verification'] });
-        queryClient.invalidateQueries({ queryKey: ['attendance-stats'] });
-        queryClient.invalidateQueries({ queryKey: ['dates-pending'] });
+        // Invalidate and refetch all related queries immediately
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['attendance-verification'] }),
+          queryClient.invalidateQueries({ queryKey: ['attendance-stats'] }),
+          queryClient.invalidateQueries({ queryKey: ['dates-pending'] }),
+          queryClient.invalidateQueries({ queryKey: ['dates-attendance'] }),
+        ]);
+        
+        // Force immediate refetch for critical data
+        await queryClient.refetchQueries({ queryKey: ['attendance-verification'] });
+        await queryClient.refetchQueries({ queryKey: ['attendance-stats'] });
+        
         handleCloseDialog();
       }
     } catch (error) {
@@ -217,12 +242,42 @@ const VerifikasiPage = () => {
   };
 
   const handleDateChange = (date: Date | null) => {
-    setSelectedDate(date);
+    if (date) {
+      // Since we're now consistently using GMT+7, pass the date as-is
+      // The server will handle GMT+7 conversion internally
+      console.log('🗓️ Date picker selected:', date.toLocaleDateString(), 'for GMT+7 processing');
+      setSelectedDate(date);
+    } else {
+      setSelectedDate(null);
+    }
     setCurrentPage(1); // Reset to first page when date changes
   };
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
+  };
+
+  // Custom day renderer to show pending verification indicator
+  const renderDayContents = (day: number, date?: Date) => {
+    if (!date) return day;
+    
+    // Convert date to GMT+7 string format for comparison
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(date.getDate()).padStart(2, '0');
+    const dateString = `${year}-${month}-${dayStr}`;
+    
+    const hasPendingVerification = datesWithPendingData.includes(dateString);
+    
+    return (
+      <div className="relative">
+        {day}
+        {hasPendingVerification && (
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" 
+               title="Ada verifikasi yang pending"></div>
+        )}
+      </div>
+    );
   };
 
   const formatTimestamp = (timestamp: number) => {
@@ -282,12 +337,15 @@ const VerifikasiPage = () => {
                 className="block w-full rounded-md border border-gray-400 shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50 p-2 pr-10"
                 placeholderText="Semua tanggal"
                 isClearable
+                renderDayContents={renderDayContents}
                 filterDate={(date: Date) => {
                   if (!datesWithAttendanceData) return true;
+                  // Convert date to GMT+7 for consistent filtering
                   const year = date.getFullYear();
                   const month = String(date.getMonth() + 1).padStart(2, '0');
                   const day = String(date.getDate()).padStart(2, '0');
                   const dateString = `${year}-${month}-${day}`;
+                  console.log('🎯 Filtering GMT+7 date:', dateString, 'Available:', datesWithAttendanceData.includes(dateString));
                   return datesWithAttendanceData.includes(dateString);
                 }}
               />
