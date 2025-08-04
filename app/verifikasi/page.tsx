@@ -12,6 +12,7 @@ import {
   updateVerificationStatus, 
   getAttendanceStats,
   getDatesWithAttendanceRecords,
+  getDatesWithPendingRequests,
   getAttendancePhotos,
   type AttendanceRecord
 } from './actions';
@@ -146,11 +147,19 @@ const VerifikasiPage = () => {
     gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
   });
 
+  const { data: datesWithPending } = useQuery<string[]>({
+    queryKey: ['dates-pending'],
+    queryFn: getDatesWithPendingRequests,
+    staleTime: 1000 * 30, // 30 seconds for pending dates
+    gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
+  });
+
   // Extracted data with defaults
   const attendanceRecords = attendanceData?.records || [];
   const totalPages = attendanceData?.totalPages || 0;
   const statsData = stats || { total: 0, approved: 0, pending: 0, rejected: 0 };
   const datesWithAttendanceData: string[] = datesWithAttendance || [];
+  const datesWithPendingData: string[] = datesWithPending || [];
 
   const handleVerifikasiClick = async (record: AttendanceRecord) => {
     setSelectedRecord(record);
@@ -248,6 +257,29 @@ const VerifikasiPage = () => {
     setCurrentPage(newPage);
   };
 
+  // Custom day renderer to show pending verification indicator
+  const renderDayContents = (day: number, date?: Date) => {
+    if (!date) return day;
+    
+    // Convert date to GMT+7 string format for comparison
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(date.getDate()).padStart(2, '0');
+    const dateString = `${year}-${month}-${dayStr}`;
+    
+    const hasPendingVerification = datesWithPendingData.includes(dateString);
+    
+    return (
+      <div className="relative">
+        {day}
+        {hasPendingVerification && (
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" 
+               title="Ada verifikasi yang pending"></div>
+        )}
+      </div>
+    );
+  };
+
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
     const dayName = date.toLocaleDateString('id-ID', { weekday: 'long' });
@@ -305,6 +337,7 @@ const VerifikasiPage = () => {
                 className="block w-full rounded-md border border-gray-400 shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50 p-2 pr-10"
                 placeholderText="Semua tanggal"
                 isClearable
+                renderDayContents={renderDayContents}
                 filterDate={(date: Date) => {
                   if (!datesWithAttendanceData) return true;
                   // Convert date to GMT+7 for consistent filtering

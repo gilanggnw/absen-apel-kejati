@@ -311,12 +311,15 @@ export async function getDatesWithPendingRequests(): Promise<string[]> {
           .where(eq(attendanceTable.verified_status, 'pending'))
           .groupBy(sql`DATE(${attendanceTable.timestamp} / 1000, 'unixepoch')`); // Group by date for efficiency
 
-        const dates = records.map((record) => {
-          const date = new Date(record.timestamp);
-          return date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        // Convert timestamps to date strings in GMT+7 timezone (same as getDatesWithAttendanceRecords)
+        const datesWithPending = records.map(record => {
+          const dateString = timestampToGMT7DateString(record.timestamp);
+          console.log('📅 Pending Timestamp:', record.timestamp, '→ GMT+7 Date:', dateString);
+          return dateString;
         });
 
-        return [...new Set(dates)]; // Remove duplicates
+        // Remove duplicates and return unique dates
+        return [...new Set(datesWithPending)];
       } catch (error) {
         console.error('Error fetching dates with pending requests:', error);
         return [];
