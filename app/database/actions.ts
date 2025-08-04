@@ -303,6 +303,19 @@ export async function saveAttendance(data: AttendanceData): Promise<boolean> {
     console.log('✅ Database insertion successful:', result);
     console.log('🎉 Attendance record saved successfully!');
     
+    // Invalidate all attendance-related caches so the new record appears immediately
+    try {
+      await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: ['attendance', 'stats', 'dates'] })
+      });
+      console.log('🔄 Cache invalidated successfully');
+    } catch (cacheError) {
+      console.warn('⚠️ Failed to invalidate cache:', cacheError);
+      // Don't fail the whole operation if cache invalidation fails
+    }
+    
     return true;
   } catch (error) {
     console.error('❌ Failed to save attendance:', error);

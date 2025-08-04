@@ -137,7 +137,7 @@ export async function getAttendanceForVerification(
     [cacheKey],
     {
       tags: [CACHE_TAGS.ATTENDANCE],
-      revalidate: 300, // 5 minutes cache
+      revalidate: 10, // Reduced to 10 seconds for faster development
     }
   )();
 }
@@ -242,7 +242,7 @@ export async function getAttendanceStats() {
     ['attendance-stats'],
     {
       tags: [CACHE_TAGS.STATS],
-      revalidate: 600, // 10 minutes cache
+      revalidate: 10, // Reduced to 10 seconds for faster development
     }
   )();
 }
@@ -273,7 +273,7 @@ export async function getDatesWithPendingRequests(): Promise<string[]> {
     ['dates-pending'],
     {
       tags: [CACHE_TAGS.DATES],
-      revalidate: 300, // 5 minutes cache
+      revalidate: 10, // Reduced to 10 seconds for faster development
     }
   )();
 }
@@ -308,7 +308,23 @@ export async function getDatesWithAttendanceRecords(): Promise<string[]> {
     ['dates-attendance'],
     {
       tags: [CACHE_TAGS.DATES],
-      revalidate: 3600, // 1 hour cache (dates don't change often)
+      revalidate: 30, // 30 seconds cache for dates
     }
   )();
+}
+
+// Helper function to clear all caches manually (for development)
+export async function clearAllCaches() {
+  try {
+    await fetch('/api/revalidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: ['attendance', 'stats', 'dates'] })
+    });
+    console.log('🔄 All caches cleared successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Failed to clear caches:', error);
+    return { success: false };
+  }
 }
