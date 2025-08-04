@@ -374,7 +374,20 @@ const AbsenApelPage = () => {
   });
 
   const handleDateChange = (date: Date | null) => {
-    setSelectedDate(date);
+    if (date) {
+      // Create a new date in UTC for the same calendar date
+      // This ensures that when user selects "9th", we query for 9th regardless of timezone
+      const utcDate = new Date(Date.UTC(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate()
+      ));
+      console.log('🗓️ Date picker selected:', date.toLocaleDateString());
+      console.log('🌍 Converted to UTC date:', utcDate.toISOString());
+      setSelectedDate(utcDate);
+    } else {
+      setSelectedDate(null);
+    }
     setCurrentPage(1); // Reset to first page when date changes
   };
 
@@ -715,11 +728,12 @@ const AbsenApelPage = () => {
                 isClearable
                 filterDate={(date: Date) => {
                   if (!datesWithAttendance) return true;
-                  // Use UTC methods to ensure consistent behavior between localhost and Vercel
-                  const year = date.getUTCFullYear();
-                  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-                  const day = String(date.getUTCDate()).padStart(2, '0');
+                  // Use local methods to match how dates are stored and processed
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
                   const dateString = `${year}-${month}-${day}`;
+                  console.log('🎯 Rekap filtering date:', dateString, 'Available:', datesWithAttendance.includes(dateString));
                   return datesWithAttendance.includes(dateString);
                 }}
               />
@@ -780,10 +794,10 @@ const AbsenApelPage = () => {
                     placeholderText="-- Pilih Tanggal --"
                     filterDate={(date: Date) => {
                       if (!datesWithAttendance) return false;
-                      // Use UTC methods to ensure consistent behavior between localhost and Vercel
-                      const year = date.getUTCFullYear();
-                      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-                      const day = String(date.getUTCDate()).padStart(2, '0');
+                      // Use local methods to match how dates are stored and processed
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
                       const dateString = `${year}-${month}-${day}`;
                       return datesWithAttendance.includes(dateString);
                     }}

@@ -170,14 +170,17 @@ export async function getDatesWithAttendanceRecordsForRekap(): Promise<string[]>
       })
       .from(attendanceTable);
 
-    // Convert timestamps to date strings (YYYY-MM-DD format) using UTC to avoid timezone issues
+    // Convert timestamps to date strings (YYYY-MM-DD format)
+    // Since Date.now() stores local time as UTC milliseconds, use local methods for consistency
     const datesWithRecords = records.map(record => {
       const date = new Date(record.timestamp);
-      // Use UTC methods to ensure consistent behavior between localhost and Vercel
-      const year = date.getUTCFullYear();
-      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(date.getUTCDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      // Use local methods to match how the data was originally stored
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+      console.log('📅 Rekap Timestamp:', record.timestamp, '→ Date:', dateString);
+      return dateString;
     });
 
     // Remove duplicates and return unique dates
