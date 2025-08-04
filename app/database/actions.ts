@@ -16,10 +16,18 @@ export type DatabaseEmployee = {
 export async function getEmployees(): Promise<DatabaseEmployee[]> {
   try {
     const employees = await db.select().from(employeesTable);
-    // Convert binary foto to base64 string
-    return employees.map(employee => ({
+    // For MySQL, photos are stored as LONGTEXT (base64 strings)
+    return employees.map((employee: {
+      id: number;
+      nama: string;
+      nip: string;
+      jabatan: string | null;
+      pangkat: string | null;
+      foto: string | null;
+      status: string;
+    }) => ({
       ...employee,
-      foto: employee.foto ? `data:image/jpeg;base64,${Buffer.from(employee.foto as Uint8Array).toString('base64')}` : null,
+      foto: employee.foto && typeof employee.foto === 'string' ? employee.foto : null,
       status: employee.status || 'aktif' // Ensure status has a default value
     }));
   } catch (error) {
@@ -34,7 +42,7 @@ export async function getEmployeeById(id: number): Promise<DatabaseEmployee | nu
     if (employees[0]) {
       return {
         ...employees[0],
-        foto: employees[0].foto ? `data:image/jpeg;base64,${Buffer.from(employees[0].foto as Uint8Array).toString('base64')}` : null,
+        foto: employees[0].foto && typeof employees[0].foto === 'string' ? employees[0].foto : null,
         status: employees[0].status || 'aktif' // Ensure status has a default value
       };
     }
@@ -69,7 +77,7 @@ export async function updateEmployee(id: number, data: UpdateEmployeeData): Prom
       jabatan: string | null;
       pangkat: string | null;
       status: string;
-      foto?: Buffer | null;
+      foto?: string | null;
     } = {
       nama: data.nama,
       jabatan: data.jabatan || null,
@@ -83,16 +91,19 @@ export async function updateEmployee(id: number, data: UpdateEmployeeData): Prom
         updateData.foto = null;
         console.log('📷 Photo deleted');
       } else if (typeof data.foto === 'string') {
-        // Convert base64 string to Buffer
-        const base64Data = data.foto.split(',')[1] || data.foto; // Remove data:image/...;base64, prefix if present
-        updateData.foto = Buffer.from(base64Data, 'base64');
-        console.log('📷 Photo updated:', `Buffer(${updateData.foto.length} bytes)`);
+        // For MySQL, store as LONGTEXT (base64 string with data URL)
+        if (data.foto.startsWith('data:')) {
+          updateData.foto = data.foto;
+        } else {
+          updateData.foto = `data:image/jpeg;base64,${data.foto}`;
+        }
+        console.log('📷 Photo updated:', `String(${updateData.foto.length} chars)`);
       }
     }
 
-    console.log('💾 Updating database with:', {
+    console.log('💾 Updating MySQL database with:', {
       ...updateData,
-      foto: updateData.foto ? `Buffer(${updateData.foto.length} bytes)` : updateData.foto
+      foto: updateData.foto ? `String(${updateData.foto.length} chars)` : updateData.foto
     });
 
     await db.update(employeesTable)
@@ -160,13 +171,16 @@ export async function addEmployee(data: {
       photoLength: data.foto?.length
     });
 
-    let fotoBuffer = null;
+    let fotoData = null;
     if (data.foto) {
-      console.log('📷 Processing photo...');
-      // Convert base64 to buffer
-      const base64Data = data.foto.split(',')[1]; // Remove data:image/...;base64, prefix
-      fotoBuffer = Buffer.from(base64Data, 'base64');
-      console.log('✅ Photo converted to buffer, size:', fotoBuffer.length, 'bytes');
+      console.log('📷 Processing photo for MySQL...');
+      // For MySQL, store as LONGTEXT (base64 string with data URL)
+      if (data.foto.startsWith('data:')) {
+        fotoData = data.foto;
+      } else {
+        fotoData = `data:image/jpeg;base64,${data.foto}`;
+      }
+      console.log('✅ Photo prepared for MySQL storage, length:', fotoData.length, 'chars');
     } else {
       console.log('ℹ️ No photo provided');
     }
@@ -176,17 +190,18 @@ export async function addEmployee(data: {
       nip: data.nip,
       jabatan: data.jabatan || null,
       pangkat: data.pangkat || null,
-      foto: fotoBuffer,
+      foto: fotoData,
+      status: 'aktif', // Default status for new employees
     };
 
-    console.log('💾 Inserting data to database:', {
+    console.log('💾 Inserting data to MySQL database:', {
       ...insertData,
-      foto: fotoBuffer ? `Buffer(${fotoBuffer.length} bytes)` : null
+      foto: fotoData ? `String(${fotoData.length} chars)` : null
     });
 
     const result = await db.insert(employeesTable).values(insertData);
     
-    console.log('✅ Database insertion successful:', result);
+    console.log('✅ MySQL database insertion successful:', result);
     console.log('🎉 Employee added successfully!');
     
     return true;
@@ -235,10 +250,18 @@ export async function searchEmployees(searchTerm: string): Promise<DatabaseEmplo
       )
       .limit(8); // Reduced limit for faster results
 
-    // Convert binary foto to base64 string
-    return employees.map(employee => ({
+    // For MySQL, photos are stored as LONGTEXT (base64 strings)
+    return employees.map((employee: {
+      id: number;
+      nama: string;
+      nip: string;
+      jabatan: string | null;
+      pangkat: string | null;
+      foto: string | null;
+      status: string;
+    }) => ({
       ...employee,
-      foto: employee.foto ? `data:image/jpeg;base64,${Buffer.from(employee.foto as Uint8Array).toString('base64')}` : null,
+      foto: employee.foto && typeof employee.foto === 'string' ? employee.foto : null,
       status: employee.status || 'aktif'
     }));
   } catch (error) {
@@ -274,33 +297,39 @@ export async function saveAttendance(data: AttendanceData): Promise<boolean> {
       photoLength: data.photo?.length
     });
 
-    // Convert base64 photo to buffer
-    let photoBuffer = null;
+    // For MySQL, store photo as LONGTEXT (base64 string)
+    let photoData = null;
     if (data.photo) {
-      console.log('📷 Processing photo...');
-      // Remove data:image/...;base64, prefix if present
-      const base64Data = data.photo.includes(',') ? data.photo.split(',')[1] : data.photo;
-      photoBuffer = Buffer.from(base64Data, 'base64');
-      console.log('✅ Photo converted to buffer, size:', photoBuffer.length, 'bytes');
+      console.log('📷 Processing photo for MySQL...');
+      // Store the complete data URL or just the base64 part
+      if (data.photo.startsWith('data:')) {
+        // Keep the full data URL for easier handling
+        photoData = data.photo;
+      } else {
+        // Add data URL prefix if it's just base64
+        photoData = `data:image/png;base64,${data.photo}`;
+      }
+      console.log('✅ Photo prepared for MySQL storage, length:', photoData.length, 'chars');
     }
 
     const insertData = {
       nip: data.nip,
       timestamp: Date.now(), // Current timestamp in milliseconds
-      photo: photoBuffer,
+      photo: photoData,
       status: data.status,
       verified_by: data.verified_by || null,
+      verified_status: 'pending', // Default value for new records
     };
 
-    console.log('💾 Inserting attendance data to database:', {
+    console.log('💾 Inserting attendance data to MySQL database:', {
       ...insertData,
-      photo: photoBuffer ? `Buffer(${photoBuffer.length} bytes)` : null
+      photo: photoData ? `[${photoData.length} chars base64 data]` : null
     });
 
     const result = await db.insert(attendanceTable).values(insertData);
     
     console.log('✅ Database insertion successful:', result);
-    console.log('🎉 Attendance record saved successfully!');
+    console.log('🎉 Attendance record saved successfully to MySQL!');
     
     return true;
   } catch (error) {
@@ -356,7 +385,15 @@ export async function getAttendanceHistoryByNip(nip: string, startDate?: Date, e
       .orderBy(sql`${attendanceTable.timestamp} DESC`);
 
     // Format the records for display
-    return records.map(record => {
+    return records.map((record: {
+      id: number;
+      nip: string | null;
+      timestamp: number;
+      photo: string | null;
+      status: string;
+      verified_status: string;
+      verified_by: string | null;
+    }) => {
       const date = new Date(record.timestamp);
       return {
         id: record.id,
@@ -364,7 +401,7 @@ export async function getAttendanceHistoryByNip(nip: string, startDate?: Date, e
         status: record.status,
         verified_status: record.verified_status || 'pending',
         verified_by: record.verified_by,
-        photo: record.photo ? `data:image/jpeg;base64,${Buffer.from(record.photo as Uint8Array).toString('base64')}` : null,
+        photo: record.photo && typeof record.photo === 'string' ? record.photo : null, // For MySQL LONGTEXT storage
         date: date.toLocaleDateString('id-ID', {
           day: '2-digit',
           month: 'long',

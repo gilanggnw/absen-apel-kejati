@@ -5,16 +5,18 @@ let db: any;
 let schema: any;
 
 if (USE_MYSQL) {
+  console.log('🐬 Using MySQL database');
   // MySQL configuration
-  const mysqlConnection = require('./mysql');
+  const { db: mysqlDb } = require('./mysql');
   const mysqlSchema = require('./schema-mysql');
-  db = mysqlConnection.db;
+  db = mysqlDb;
   schema = mysqlSchema;
 } else {
-  // Turso configuration (existing)
-  const tursoConnection = require('./index');
+  console.log('🚀 Using Turso (SQLite) database');
+  // Turso configuration (existing)  
+  const { db: tursoDb } = require('./index');
   const tursoSchema = require('./schema');
-  db = tursoConnection.db;
+  db = tursoDb;
   schema = tursoSchema;
 }
 
