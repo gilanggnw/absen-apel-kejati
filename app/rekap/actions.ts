@@ -4,6 +4,35 @@ import { db } from '@/db';
 import { attendanceTable, employeesTable } from '@/db/schema';
 import { eq, desc, and, gte, lte, count } from 'drizzle-orm';
 
+// Helper function to convert timestamp to GMT+7 date string
+function timestampToGMT7DateString(timestamp: number): string {
+  const date = new Date(timestamp);
+  // Convert to GMT+7 (UTC+7)
+  const gmt7Date = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+  const year = gmt7Date.getUTCFullYear();
+  const month = String(gmt7Date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(gmt7Date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Helper function to convert GMT+7 date to UTC timestamp range
+function gmt7DateToUTCRange(date: Date): { start: number; end: number } {
+  // Get the date in GMT+7
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  
+  // Create start of day in GMT+7 (subtract 7 hours to get UTC)
+  const startGMT7 = new Date(year, month, day, 0, 0, 0, 0);
+  const startUTC = startGMT7.getTime() - (7 * 60 * 60 * 1000);
+  
+  // Create end of day in GMT+7 (subtract 7 hours to get UTC)
+  const endGMT7 = new Date(year, month, day, 23, 59, 59, 999);
+  const endUTC = endGMT7.getTime() - (7 * 60 * 60 * 1000);
+  
+  return { start: startUTC, end: endUTC };
+}
+
 export interface RekapAttendanceRecord {
   id: number;
   nip: string;
@@ -49,15 +78,12 @@ export async function getAttendanceForRekap(
     // Execute queries with or without date filter
     let records, totalResult;
     if (selectedDate) {
-      // Use UTC to avoid timezone issues between localhost and Vercel
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setUTCHours(0, 0, 0, 0);
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setUTCHours(23, 59, 59, 999);
+      // Convert selected date to GMT+7 timestamp range
+      const { start, end } = gmt7DateToUTCRange(selectedDate);
 
       const dateFilter = and(
-        gte(attendanceTable.timestamp, startOfDay.getTime()),
-        lte(attendanceTable.timestamp, endOfDay.getTime())
+        gte(attendanceTable.timestamp, start),
+        lte(attendanceTable.timestamp, end)
       );
 
       [records, totalResult] = await Promise.all([
@@ -107,11 +133,8 @@ export async function getRekapStats(selectedDate?: Date): Promise<RekapStats> {
     // Get attendance records based on date filter
     let attendanceRecords;
     if (selectedDate) {
-      // Use UTC to avoid timezone issues between localhost and Vercel
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setUTCHours(0, 0, 0, 0);
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setUTCHours(23, 59, 59, 999);
+      // Convert selected date to GMT+7 timestamp range  
+      const { start, end } = gmt7DateToUTCRange(selectedDate);
 
       attendanceRecords = await db
         .select({
@@ -120,8 +143,8 @@ export async function getRekapStats(selectedDate?: Date): Promise<RekapStats> {
         .from(attendanceTable)
         .where(
           and(
-            gte(attendanceTable.timestamp, startOfDay.getTime()),
-            lte(attendanceTable.timestamp, endOfDay.getTime())
+            gte(attendanceTable.timestamp, start),
+            lte(attendanceTable.timestamp, end)
           )
         );
     } else {
@@ -170,16 +193,10 @@ export async function getDatesWithAttendanceRecordsForRekap(): Promise<string[]>
       })
       .from(attendanceTable);
 
-    // Convert timestamps to date strings (YYYY-MM-DD format)
-    // Since Date.now() stores local time as UTC milliseconds, use local methods for consistency
+    // Convert timestamps to date strings in GMT+7 timezone
     const datesWithRecords = records.map(record => {
-      const date = new Date(record.timestamp);
-      // Use local methods to match how the data was originally stored
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateString = `${year}-${month}-${day}`;
-      console.log('📅 Rekap Timestamp:', record.timestamp, '→ Date:', dateString);
+      const dateString = timestampToGMT7DateString(record.timestamp);
+      console.log('📅 Rekap Timestamp:', record.timestamp, '→ GMT+7 Date:', dateString);
       return dateString;
     });
 

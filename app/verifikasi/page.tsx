@@ -234,16 +234,10 @@ const VerifikasiPage = () => {
 
   const handleDateChange = (date: Date | null) => {
     if (date) {
-      // Create a new date in UTC for the same calendar date
-      // This ensures that when user selects "9th", we query for 9th regardless of timezone
-      const utcDate = new Date(Date.UTC(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate()
-      ));
-      console.log('🗓️ Date picker selected:', date.toLocaleDateString());
-      console.log('🌍 Converted to UTC date:', utcDate.toISOString());
-      setSelectedDate(utcDate);
+      // Since we're now consistently using GMT+7, pass the date as-is
+      // The server will handle GMT+7 conversion internally
+      console.log('🗓️ Date picker selected:', date.toLocaleDateString(), 'for GMT+7 processing');
+      setSelectedDate(date);
     } else {
       setSelectedDate(null);
     }
@@ -313,12 +307,12 @@ const VerifikasiPage = () => {
                 isClearable
                 filterDate={(date: Date) => {
                   if (!datesWithAttendanceData) return true;
-                  // Use local methods to match how dates are stored and processed
+                  // Convert date to GMT+7 for consistent filtering
                   const year = date.getFullYear();
                   const month = String(date.getMonth() + 1).padStart(2, '0');
                   const day = String(date.getDate()).padStart(2, '0');
                   const dateString = `${year}-${month}-${day}`;
-                  console.log('🎯 Filtering date:', dateString, 'Available:', datesWithAttendanceData.includes(dateString));
+                  console.log('🎯 Filtering GMT+7 date:', dateString, 'Available:', datesWithAttendanceData.includes(dateString));
                   return datesWithAttendanceData.includes(dateString);
                 }}
               />
