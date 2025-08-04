@@ -1,7 +1,6 @@
 'use server';
 
-import { db } from '../../db';
-import { employeesTable, attendanceTable } from '../../db/schema';
+import { db, employeesTable, attendanceTable } from '../../db/switch';
 import { eq, sql, and, gte, lte, SQL } from 'drizzle-orm';
 
 export type DatabaseEmployee = {
