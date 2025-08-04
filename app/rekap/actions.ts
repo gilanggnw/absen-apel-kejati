@@ -18,16 +18,22 @@ function timestampToGMT7DateString(timestamp: number): string {
 // Helper function to convert GMT+7 date to UTC timestamp range
 function gmt7DateToUTCRange(date: Date): { start: number; end: number } {
   // Since this app is only used in Indonesia (GMT+7), let's simplify this
-  // Extract the calendar date components (what the user selected)
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth();
-  const day = date.getUTCDate();
+  // The date picker sends us a UTC date that represents the start of the selected day in GMT+7
+  // For example: clicking Aug 4th sends "2025-08-03T17:00:00.000Z" (which is Aug 4th 00:00 GMT+7)
   
   console.log('🔍 Rekap date range calculation (SIMPLIFIED):');
   console.log('   Input date object:', date);
   console.log('   Input date toISOString():', date.toISOString());
   console.log('   Input date toDateString():', date.toDateString());
-  console.log('   Extracted UTC components: year=', year, 'month=', month, 'day=', day);
+  
+  // Convert the UTC timestamp to GMT+7 to get the actual selected date
+  const gmt7Date = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+  const year = gmt7Date.getUTCFullYear();
+  const month = gmt7Date.getUTCMonth();
+  const day = gmt7Date.getUTCDate();
+  
+  console.log('   Converted to GMT+7:', gmt7Date.toISOString());
+  console.log('   Extracted GMT+7 components: year=', year, 'month=', month, 'day=', day);
   
   // Create start and end of day in GMT+7 timezone
   // Start: YYYY-MM-DD 00:00:00 GMT+7 = YYYY-MM-DD 17:00:00 UTC (previous day)
