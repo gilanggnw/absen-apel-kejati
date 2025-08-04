@@ -334,7 +334,7 @@ function FotoPageContent() {
             <button
               onClick={handleTakePhoto}
               disabled={!stream}
-              className="w-full bg-gray-200 text-gray-800 text-lg font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-500 text-white text-lg font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Ambil Foto (Take Photo)
             </button>
