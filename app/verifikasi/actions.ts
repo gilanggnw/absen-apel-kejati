@@ -54,18 +54,26 @@ function timestampToGMT7DateString(timestamp: number): string {
 
 // Helper function to convert GMT+7 date to UTC timestamp range
 function gmt7DateToUTCRange(date: Date): { start: number; end: number } {
-  // Get the date in GMT+7
+  // Get the date components (this gives us the date as selected by user)
   const year = date.getFullYear();
   const month = date.getMonth();
   const day = date.getDate();
   
-  // Create start of day in GMT+7 (subtract 7 hours to get UTC)
+  // Create start of day in GMT+7 timezone
   const startGMT7 = new Date(year, month, day, 0, 0, 0, 0);
-  const startUTC = startGMT7.getTime() - (7 * 60 * 60 * 1000);
-  
-  // Create end of day in GMT+7 (subtract 7 hours to get UTC)
+  // Create end of day in GMT+7 timezone  
   const endGMT7 = new Date(year, month, day, 23, 59, 59, 999);
+  
+  // Convert GMT+7 to UTC by subtracting 7 hours
+  const startUTC = startGMT7.getTime() - (7 * 60 * 60 * 1000);
   const endUTC = endGMT7.getTime() - (7 * 60 * 60 * 1000);
+  
+  console.log('🔍 Date range calculation:');
+  console.log('   Selected date:', date.toDateString());
+  console.log('   GMT+7 start:', startGMT7.toLocaleString('id-ID'));
+  console.log('   GMT+7 end:', endGMT7.toLocaleString('id-ID'));
+  console.log('   UTC start timestamp:', startUTC, '→', new Date(startUTC).toISOString());
+  console.log('   UTC end timestamp:', endUTC, '→', new Date(endUTC).toISOString());
   
   return { start: startUTC, end: endUTC };
 }
@@ -90,6 +98,8 @@ export async function getAttendanceForVerification(
         if (date) {
           // Convert selected date to GMT+7 timestamp range
           const { start, end } = gmt7DateToUTCRange(date);
+          
+          console.log('🔎 Query filtering with UTC range:', start, 'to', end);
           
           conditions.push(
             and(
@@ -131,6 +141,13 @@ export async function getAttendanceForVerification(
 
         const totalRecords = totalCountResult[0]?.count || 0;
         const totalPages = Math.ceil(totalRecords / limit);
+
+        console.log('📊 Query results:', {
+          totalRecords,
+          currentPage: page,
+          recordsFound: attendanceRecords.length,
+          dateFilter: date ? date.toDateString() : 'none'
+        });
 
         // Only fetch BLOB data when specifically needed (lazy loading)
         const records: AttendanceRecord[] = attendanceRecords.map((record) => ({
