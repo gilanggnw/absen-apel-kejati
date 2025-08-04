@@ -17,24 +17,25 @@ function timestampToGMT7DateString(timestamp: number): string {
 
 // Helper function to convert GMT+7 date to UTC timestamp range
 function gmt7DateToUTCRange(date: Date): { start: number; end: number } {
-  // Get the date components (this gives us the date as selected by user)
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const day = date.getDate();
+  // The date object from the date picker might be in UTC or local time
+  // We need to extract the calendar date components and create a proper GMT+7 range
   
-  // Create start of day in GMT+7 timezone
-  const startGMT7 = new Date(year, month, day, 0, 0, 0, 0);
-  // Create end of day in GMT+7 timezone  
-  const endGMT7 = new Date(year, month, day, 23, 59, 59, 999);
+  // Extract year, month, day from the date (treating it as a calendar date)
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
   
-  // Convert GMT+7 to UTC by subtracting 7 hours
-  const startUTC = startGMT7.getTime() - (7 * 60 * 60 * 1000);
-  const endUTC = endGMT7.getTime() - (7 * 60 * 60 * 1000);
+  // Create the start and end of the day in GMT+7 using Date.UTC
+  // Start: YYYY-MM-DD 00:00:00 GMT+7 = YYYY-MM-DD 17:00:00 UTC (previous day)
+  const startUTC = Date.UTC(year, month, day, 0, 0, 0, 0) - (7 * 60 * 60 * 1000);
+  // End: YYYY-MM-DD 23:59:59.999 GMT+7 = YYYY-MM-DD 16:59:59.999 UTC 
+  const endUTC = Date.UTC(year, month, day, 23, 59, 59, 999) - (7 * 60 * 60 * 1000);
   
-  console.log('🔍 Rekap date range calculation:');
+  console.log('🔍 Rekap date range calculation (FIXED):');
   console.log('   Selected date:', date.toDateString());
-  console.log('   GMT+7 start:', startGMT7.toLocaleString('id-ID'));
-  console.log('   GMT+7 end:', endGMT7.toLocaleString('id-ID'));
+  console.log('   Extracted UTC components: year=', year, 'month=', month, 'day=', day);
+  console.log('   GMT+7 start would be:', new Date(Date.UTC(year, month, day, 0, 0, 0, 0)).toISOString().replace('T', ' ').substring(0, 19), 'GMT+7');
+  console.log('   GMT+7 end would be:', new Date(Date.UTC(year, month, day, 23, 59, 59, 999)).toISOString().replace('T', ' ').substring(0, 19), 'GMT+7');
   console.log('   UTC start timestamp:', startUTC, '→', new Date(startUTC).toISOString());
   console.log('   UTC end timestamp:', endUTC, '→', new Date(endUTC).toISOString());
   
