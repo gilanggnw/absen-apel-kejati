@@ -54,33 +54,27 @@ function timestampToGMT7DateString(timestamp: number): string {
 
 // Helper function to convert GMT+7 date to UTC timestamp range
 function gmt7DateToUTCRange(date: Date): { start: number; end: number } {
-  // The date object from the date picker is in local timezone
-  // We need to extract the calendar date components and create a proper GMT+7 range
+  // Since this app is only used in Indonesia (GMT+7), let's simplify this
+  // Extract the calendar date components (what the user selected)
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
   
-  console.log('🔍 Date range calculation (FIXED):');
+  console.log('🔍 Date range calculation (SIMPLIFIED):');
   console.log('   Input date object:', date);
-  console.log('   Input date toString():', date.toString());
   console.log('   Input date toISOString():', date.toISOString());
   console.log('   Input date toDateString():', date.toDateString());
+  console.log('   Extracted UTC components: year=', year, 'month=', month, 'day=', day);
   
-  // Extract year, month, day from local time (what user selected)
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const day = date.getDate();
+  // Create start and end of day in GMT+7 timezone
+  // Start: YYYY-MM-DD 00:00:00 GMT+7 = YYYY-MM-DD 17:00:00 UTC (previous day)
+  // End: YYYY-MM-DD 23:59:59 GMT+7 = YYYY-MM-DD 16:59:59 UTC (same day)
+  const startUTC = Date.UTC(year, month, day, 0, 0, 0, 0) - (7 * 60 * 60 * 1000);
+  const endUTC = Date.UTC(year, month, day, 23, 59, 59, 999) - (7 * 60 * 60 * 1000);
   
-  console.log('   Extracted LOCAL components: year=', year, 'month=', month, 'day=', day);
-  
-  // Create the start and end of the day in GMT+7 using local Date constructor
-  // Then convert to UTC timestamps by subtracting 7 hours
-  const startLocalMidnight = new Date(year, month, day, 0, 0, 0, 0);
-  const endLocalMidnight = new Date(year, month, day, 23, 59, 59, 999);
-  
-  // Convert these local times to UTC timestamps by subtracting 7 hours
-  const startUTC = startLocalMidnight.getTime() - (7 * 60 * 60 * 1000);
-  const endUTC = endLocalMidnight.getTime() - (7 * 60 * 60 * 1000);
-  
-  console.log('   LOCAL start midnight:', startLocalMidnight.toString());
-  console.log('   LOCAL end midnight:', endLocalMidnight.toString());
+  console.log('   Target GMT+7 date: ', `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+  console.log('   GMT+7 start (00:00:00):', new Date(Date.UTC(year, month, day, 0, 0, 0, 0)).toISOString().replace('T', ' ').substring(0, 19), 'GMT+7');
+  console.log('   GMT+7 end (23:59:59):', new Date(Date.UTC(year, month, day, 23, 59, 59, 999)).toISOString().replace('T', ' ').substring(0, 19), 'GMT+7');
   console.log('   UTC start timestamp:', startUTC, '→', new Date(startUTC).toISOString());
   console.log('   UTC end timestamp:', endUTC, '→', new Date(endUTC).toISOString());
   
