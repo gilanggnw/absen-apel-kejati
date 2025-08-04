@@ -13,7 +13,7 @@ import {
   getDatesWithAttendanceRecordsForRekap,
   type RekapAttendanceRecord,
   type RekapStats 
-} from './actions';
+} from './actions-mysql';
 
 // Dynamic import for DatePicker to avoid SSR issues
 const DatePickerWrapper = dynamic(() => import('../components/DatePickerWrapper'), {

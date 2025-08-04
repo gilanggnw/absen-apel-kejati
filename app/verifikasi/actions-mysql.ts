@@ -5,7 +5,8 @@ import mysql from 'mysql2/promise';
 import { eq, desc, and, count, sql } from 'drizzle-orm';
 import {
   employeesTable,
-  attendanceTable 
+  attendanceTable,
+  usersTable
 } from '../../db/schema-mysql';
 
 // Direct MySQL connection for verification actions
@@ -198,6 +199,41 @@ export async function getAttendancePhotos(recordId: string): Promise<{
   }
 }
 
+// Helper function to ensure user exists or create a default one
+async function ensureUserExists(userId: string): Promise<boolean> {
+  try {
+    // Check if user exists
+    const userExists = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+
+    if (userExists.length > 0) {
+      return true;
+    }
+
+    // If user doesn't exist, create a default admin user with this ID
+    console.log(`🔧 Creating default user with ID: ${userId}`);
+    
+    await db
+      .insert(usersTable)
+      .values({
+        id: userId,
+        name: 'Admin User',
+        email: `admin-${userId.substring(0, 8)}@system.local`,
+        password: 'temp-password', // This should be properly hashed in production
+        role: 'admin'
+      });
+
+    console.log('✅ Default user created successfully');
+    return true;
+  } catch (error) {
+    console.error('❌ Error ensuring user exists:', error);
+    return false;
+  }
+}
+
 export async function updateVerificationStatus(
   recordId: string,
   status: 'approved' | 'rejected',
@@ -206,13 +242,29 @@ export async function updateVerificationStatus(
   try {
     console.log(`🔄 Updating verification status for record ${recordId} to ${status}`);
     
-    await db
-      .update(attendanceTable)
-      .set({
-        verified_status: status,
-        verified_by: verifiedBy,
-      })
-      .where(eq(attendanceTable.id, parseInt(recordId)));
+    // Ensure the user exists or create a default one
+    const userValid = await ensureUserExists(verifiedBy);
+    
+    if (userValid) {
+      // Update with verified_by if user exists/was created
+      await db
+        .update(attendanceTable)
+        .set({
+          verified_status: status,
+          verified_by: verifiedBy,
+        })
+        .where(eq(attendanceTable.id, parseInt(recordId)));
+    } else {
+      // Fallback: Update without verified_by if user creation failed
+      console.warn(`⚠️ Could not ensure user ${verifiedBy} exists. Updating without verified_by.`);
+      
+      await db
+        .update(attendanceTable)
+        .set({
+          verified_status: status,
+        })
+        .where(eq(attendanceTable.id, parseInt(recordId)));
+    }
 
     console.log('✅ Verification status updated successfully');
     return { success: true };

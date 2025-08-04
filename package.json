@@ -17,7 +17,8 @@
     "db:push:mysql": "drizzle-kit push --config=drizzle-mysql.config.ts",
     "db:test:mysql": "tsx db/test-mysql.ts",
     "seed": "tsx db/seed.ts",
-    "seed:mysql": "tsx db/seed-mysql.ts"
+    "seed:mysql": "tsx db/seed-mysql.ts",
+    "setup:admin": "tsx scripts/setup-admin-user.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.10.0",

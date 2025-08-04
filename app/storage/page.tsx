@@ -263,7 +263,7 @@ export default function StoragePage() {
                   <p className="text-sm mt-1">{statsError instanceof Error ? statsError.message : 'Unknown error'}</p>
                   <button 
                     onClick={() => window.location.reload()} 
-                    className="mt-2 text-sm bg-red-100 hover:bg-red-200 px-3 py-1 rounded"
+                    className="mt-2 px-4 py-2 text-sm bg-red-100 hover:bg-red-200 rounded-lg"
                   >
                     Coba Lagi
                   </button>
@@ -294,7 +294,7 @@ export default function StoragePage() {
                   <p>Tidak ada data statistik tersedia</p>
                   <button 
                     onClick={() => queryClient.invalidateQueries({ queryKey: ['storage-stats'] })} 
-                    className="mt-2 text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded"
+                    className="mt-2 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
                   >
                     Muat Ulang
                   </button>
@@ -327,14 +327,14 @@ export default function StoragePage() {
                   <button
                     onClick={() => automationMutation.mutate('start')}
                     disabled={automationMutation.isPending || automationStatus === 'running'}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Mulai Otomatis
                   </button>
                   <button
                     onClick={() => automationMutation.mutate('start-immediate')}
                     disabled={automationMutation.isPending || automationStatus === 'running'}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Start automation with immediate first cleanup"
                   >
                     🧪 Test Start
@@ -342,7 +342,7 @@ export default function StoragePage() {
                   <button
                     onClick={() => automationMutation.mutate('start-test')}
                     disabled={automationMutation.isPending || automationStatus === 'running'}
-                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                    className="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Start automation with 5-minute intervals for testing"
                   >
                     ⚡ 5min Test
@@ -350,7 +350,7 @@ export default function StoragePage() {
                   <button
                     onClick={() => automationMutation.mutate('stop')}
                     disabled={automationMutation.isPending || automationStatus === 'stopped'}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Hentikan Otomatis
                   </button>
@@ -388,14 +388,14 @@ export default function StoragePage() {
                   <button
                     onClick={handleManualCleanup}
                     disabled={cleanupMutation.isPending || !stats || stats.oldRecordsWithPhotos === 0}
-                    className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {cleanupMutation.isPending ? 'Membersihkan...' : 'Bersihkan Foto Lama'}
                   </button>
                   <button
                     onClick={() => testCleanupMutation.mutate()}
                     disabled={testCleanupMutation.isPending}
-                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="px-4 py-2 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Hapus foto yang lebih dari 1 hari (untuk testing)"
                   >
                     {testCleanupMutation.isPending ? 'Testing...' : '🧪 Test Delete (1 Day)'}
@@ -403,7 +403,7 @@ export default function StoragePage() {
                   <button
                     onClick={() => automationMutation.mutate('trigger')}
                     disabled={automationMutation.isPending}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Jalankan via API
                   </button>
@@ -432,17 +432,17 @@ export default function StoragePage() {
                 </>
               )}
             </p>
-            <div className="flex space-x-3">
+            <div className="flex space-x-3 justify-end">
               <button
                 onClick={() => setShowCleanupDialog(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Batal
               </button>
               <button
                 onClick={confirmCleanup}
                 disabled={cleanupMutation.isPending}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
               >
                 {cleanupMutation.isPending ? 'Membersihkan...' : 'Ya, Hapus'}
               </button>

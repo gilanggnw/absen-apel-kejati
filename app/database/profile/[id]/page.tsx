@@ -199,7 +199,7 @@ const ProfilePage = () => {
     const params = useParams();
     const employeeId = params.id as string;
     
-    const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date(2025, 6)); // July 2025
+    const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date()); // Current month
 
     // React Query for employee data
     const { 
