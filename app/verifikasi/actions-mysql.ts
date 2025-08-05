@@ -22,6 +22,13 @@ const connection = mysql.createPool({
   queueLimit: 0,
 });
 
+console.log('🐬 MySQL Connection Config:', {
+  host: process.env.MYSQL_HOST || 'localhost',
+  port: parseInt(process.env.MYSQL_PORT || '3306'),
+  database: process.env.MYSQL_DATABASE || 'absen_apel_kejati',
+  isAiven: process.env.MYSQL_HOST?.includes('aivencloud.com') || false
+});
+
 const db = drizzle(connection);
 
 export interface AttendanceRecord {
