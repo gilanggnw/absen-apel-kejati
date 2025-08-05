@@ -16,6 +16,7 @@ const connection = mysql.createPool({
   user: process.env.MYSQL_USER || 'root',
   password: process.env.MYSQL_PASSWORD || '',
   database: process.env.MYSQL_DATABASE || 'absen_apel_kejati',
+  ssl: process.env.MYSQL_HOST?.includes('aivencloud.com') ? { rejectUnauthorized: false } : undefined,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
