@@ -31,6 +31,52 @@ console.log('🐬 MySQL Connection Config:', {
 
 const db = drizzle(connection);
 
+// Helper function to convert timestamp to GMT+7 date string
+function timestampToGMT7DateString(timestamp: number): string {
+  const date = new Date(timestamp);
+  // Convert to GMT+7 (UTC+7)
+  const gmt7Date = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+  const year = gmt7Date.getUTCFullYear();
+  const month = String(gmt7Date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(gmt7Date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Helper function to convert GMT+7 date to UTC timestamp range
+function gmt7DateToUTCRange(date: Date): { start: number; end: number } {
+  // Since this app is only used in Indonesia (GMT+7), let's simplify this
+  // The date picker sends us a UTC date that represents the start of the selected day in GMT+7
+  // For example: clicking Aug 4th sends "2025-08-03T17:00:00.000Z" (which is Aug 4th 00:00 GMT+7)
+  
+  console.log('🔍 Verifikasi date range calculation (SIMPLIFIED):');
+  console.log('   Input date object:', date);
+  console.log('   Input date toISOString():', date.toISOString());
+  console.log('   Input date toDateString():', date.toDateString());
+  
+  // Convert the UTC timestamp to GMT+7 to get the actual selected date
+  const gmt7Date = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+  const year = gmt7Date.getUTCFullYear();
+  const month = gmt7Date.getUTCMonth();
+  const day = gmt7Date.getUTCDate();
+  
+  console.log('   Converted to GMT+7:', gmt7Date.toISOString());
+  console.log('   Extracted GMT+7 components: year=', year, 'month=', month, 'day=', day);
+  
+  // Create start and end of day in GMT+7 timezone
+  // Start: YYYY-MM-DD 00:00:00 GMT+7 = YYYY-MM-DD 17:00:00 UTC (previous day)
+  // End: YYYY-MM-DD 23:59:59 GMT+7 = YYYY-MM-DD 16:59:59 UTC (same day)
+  const startUTC = Date.UTC(year, month, day, 0, 0, 0, 0) - (7 * 60 * 60 * 1000);
+  const endUTC = Date.UTC(year, month, day, 23, 59, 59, 999) - (7 * 60 * 60 * 1000);
+  
+  console.log('   Target GMT+7 date: ', `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+  console.log('   GMT+7 start (00:00:00):', new Date(Date.UTC(year, month, day, 0, 0, 0, 0)).toISOString().replace('T', ' ').substring(0, 19), 'GMT+7');
+  console.log('   GMT+7 end (23:59:59):', new Date(Date.UTC(year, month, day, 23, 59, 59, 999)).toISOString().replace('T', ' ').substring(0, 19), 'GMT+7');
+  console.log('   UTC start timestamp:', startUTC, '→', new Date(startUTC).toISOString());
+  console.log('   UTC end timestamp:', endUTC, '→', new Date(endUTC).toISOString());
+  
+  return { start: startUTC, end: endUTC };
+}
+
 export interface AttendanceRecord {
   id: string;
   nama: string;
@@ -91,15 +137,13 @@ export async function getAttendanceForVerification(
     const conditions = [];
     
     if (date) {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Use the GMT+7 helper function to get proper UTC timestamp range
+      const { start, end } = gmt7DateToUTCRange(date);
       
       conditions.push(
         and(
-          sql`${attendanceTable.timestamp} >= ${startOfDay.getTime()}`,
-          sql`${attendanceTable.timestamp} <= ${endOfDay.getTime()}`
+          sql`${attendanceTable.timestamp} >= ${start}`,
+          sql`${attendanceTable.timestamp} <= ${end}`
         )
       );
     }
@@ -323,8 +367,8 @@ export async function getDatesWithPendingRequests(): Promise<string[]> {
       .where(eq(attendanceTable.verified_status, 'pending'));
 
     const dates: string[] = records.map((record: { timestamp: number }) => {
-      const date = new Date(record.timestamp);
-      return date.toISOString().split('T')[0];
+      // Use the helper function to convert timestamp to GMT+7 date string
+      return timestampToGMT7DateString(record.timestamp);
     });
 
     return [...new Set(dates)];
@@ -345,11 +389,8 @@ export async function getDatesWithAttendanceRecords(): Promise<string[]> {
       .from(attendanceTable);
 
     const datesWithRecords: string[] = records.map((record: { timestamp: number }) => {
-      const date = new Date(record.timestamp);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      // Use the helper function to convert timestamp to GMT+7 date string
+      return timestampToGMT7DateString(record.timestamp);
     });
 
     return [...new Set(datesWithRecords)];
