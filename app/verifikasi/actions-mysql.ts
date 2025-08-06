@@ -42,39 +42,22 @@ function timestampToGMT7DateString(timestamp: number): string {
   return `${year}-${month}-${day}`;
 }
 
-// Helper function to convert GMT+7 date to UTC timestamp range
+/**
+ * Given a JS Date (from date picker, assumed UTC midnight),
+ * returns the UTC timestamp range for the selected day in GMT+7.
+ */
 function gmt7DateToUTCRange(date: Date): { start: number; end: number } {
-  // Since this app is only used in Indonesia (GMT+7), let's simplify this
-  // The date picker sends us a UTC date that represents the start of the selected day in GMT+7
-  // For example: clicking Aug 4th sends "2025-08-03T17:00:00.000Z" (which is Aug 4th 00:00 GMT+7)
-  
-  console.log('🔍 Verifikasi date range calculation (SIMPLIFIED):');
-  console.log('   Input date object:', date);
-  console.log('   Input date toISOString():', date.toISOString());
-  console.log('   Input date toDateString():', date.toDateString());
-  
-  // Convert the UTC timestamp to GMT+7 to get the actual selected date
-  const gmt7Date = new Date(date.getTime() + (7 * 60 * 60 * 1000));
-  const year = gmt7Date.getUTCFullYear();
-  const month = gmt7Date.getUTCMonth();
-  const day = gmt7Date.getUTCDate();
-  
-  console.log('   Converted to GMT+7:', gmt7Date.toISOString());
-  console.log('   Extracted GMT+7 components: year=', year, 'month=', month, 'day=', day);
-  
-  // Create start and end of day in GMT+7 timezone
-  // Start: YYYY-MM-DD 00:00:00 GMT+7 = YYYY-MM-DD 17:00:00 UTC (previous day)
-  // End: YYYY-MM-DD 23:59:59 GMT+7 = YYYY-MM-DD 16:59:59 UTC (same day)
-  const startUTC = Date.UTC(year, month, day, 0, 0, 0, 0) - (7 * 60 * 60 * 1000);
-  const endUTC = Date.UTC(year, month, day, 23, 59, 59, 999) - (7 * 60 * 60 * 1000);
-  
-  console.log('   Target GMT+7 date: ', `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
-  console.log('   GMT+7 start (00:00:00):', new Date(Date.UTC(year, month, day, 0, 0, 0, 0)).toISOString().replace('T', ' ').substring(0, 19), 'GMT+7');
-  console.log('   GMT+7 end (23:59:59):', new Date(Date.UTC(year, month, day, 23, 59, 59, 999)).toISOString().replace('T', ' ').substring(0, 19), 'GMT+7');
-  console.log('   UTC start timestamp:', startUTC, '→', new Date(startUTC).toISOString());
-  console.log('   UTC end timestamp:', endUTC, '→', new Date(endUTC).toISOString());
-  
-  return { start: startUTC, end: endUTC };
+  // Get the date in GMT+7 by shifting the UTC date by +7 hours
+  const gmt7Year = date.getUTCFullYear();
+  const gmt7Month = date.getUTCMonth();
+  const gmt7Day = date.getUTCDate();
+
+  // Start of day in GMT+7 (00:00:00.000 GMT+7) in UTC
+  const start = Date.UTC(gmt7Year, gmt7Month, gmt7Day, -7, 0, 0, 0);
+  // End of day in GMT+7 (23:59:59.999 GMT+7) in UTC
+  const end = Date.UTC(gmt7Year, gmt7Month, gmt7Day, 16, 59, 59, 999);
+
+  return { start, end };
 }
 
 export interface AttendanceRecord {
