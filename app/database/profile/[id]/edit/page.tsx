@@ -24,7 +24,7 @@ const EditEmployeePage = () => {
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [photoPreview, setPhotoPreview] = useState<string>('');
-    const [photoBase64, setPhotoBase64] = useState<string>('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [photoDeleted, setPhotoDeleted] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,8 +45,8 @@ const EditEmployeePage = () => {
                         });
                         // Set photo preview if exists
                         if (data.foto) {
-                            // foto is already a base64 data URL from the server
-                            setPhotoPreview(data.foto);
+                            // foto is a filename, construct full URL
+                            setPhotoPreview(`/${data.foto}`);
                         }
                     }
                 } catch (error) {
@@ -76,13 +76,13 @@ const EditEmployeePage = () => {
         const file = e.target.files?.[0];
         if (file) {
             setPhotoDeleted(false);
+            setSelectedFile(file);
             
-            // Create preview and store base64
+            // Create preview
             const reader = new FileReader();
             reader.onload = () => {
                 const result = reader.result as string;
                 setPhotoPreview(result);
-                setPhotoBase64(result); // Store base64 for server submission
             };
             reader.readAsDataURL(file);
         }
@@ -91,7 +91,7 @@ const EditEmployeePage = () => {
     // Handle photo deletion
     const handleDeletePhoto = () => {
         setPhotoPreview('');
-        setPhotoBase64('');
+        setSelectedFile(null);
         setPhotoDeleted(true);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
@@ -108,11 +108,43 @@ const EditEmployeePage = () => {
 
         setSaving(true);
         try {
+            let newFilename: string | null = null;
+
+            // Handle photo upload if there's a new file
+            if (selectedFile && employee?.nip) {
+                const formData = new FormData();
+                formData.append('photo', selectedFile);
+                formData.append('employeeNip', employee.nip);
+                if (employee.foto) {
+                    formData.append('oldFilename', employee.foto);
+                }
+
+                const uploadResponse = await fetch('/api/upload-photo', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!uploadResponse.ok) {
+                    const error = await uploadResponse.json();
+                    throw new Error(error.error || 'Failed to upload photo');
+                }
+
+                const uploadResult = await uploadResponse.json();
+                newFilename = uploadResult.filename;
+            }
+
+            // Handle photo deletion
+            if (photoDeleted && employee?.foto) {
+                await fetch(`/api/upload-photo?filename=${employee.foto}`, {
+                    method: 'DELETE',
+                });
+            }
+
             const updateData: UpdateEmployeeData = { ...formData };
             
-            // Handle photo updates
-            if (photoBase64) {
-                updateData.foto = photoBase64; // Send base64 string
+            // Update photo filename in database
+            if (selectedFile && newFilename) {
+                updateData.foto = newFilename;
             } else if (photoDeleted) {
                 updateData.foto = null;
             }
@@ -125,7 +157,7 @@ const EditEmployeePage = () => {
             }
         } catch (error) {
             console.error('Failed to update employee:', error);
-            alert('Terjadi kesalahan saat memperbarui data');
+            alert(`Terjadi kesalahan: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
             setSaving(false);
         }

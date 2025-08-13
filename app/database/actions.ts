@@ -57,7 +57,7 @@ export type UpdateEmployeeData = {
   nama: string;
   jabatan?: string;
   pangkat?: string;
-  foto?: string | null; // base64 string or null
+  foto?: string | null; // filename string or null
   status?: string; // Add status field
 };
 
@@ -68,8 +68,8 @@ export async function updateEmployee(id: number, data: UpdateEmployeeData): Prom
       nama: data.nama,
       jabatan: data.jabatan,
       pangkat: data.pangkat,
-      hasPhoto: !!data.foto,
-      photoSize: data.foto ? data.foto.length : 0
+      foto: data.foto,
+      status: data.status
     });
 
     const updateData: {
@@ -87,23 +87,13 @@ export async function updateEmployee(id: number, data: UpdateEmployeeData): Prom
 
     // Only update photo if it's explicitly provided (including null for deletion)
     if (data.foto !== undefined) {
-      if (data.foto === null) {
-        updateData.foto = null;
-        console.log('📷 Photo deleted');
-      } else if (typeof data.foto === 'string') {
-        // For MySQL, store as LONGTEXT (base64 string with data URL)
-        if (data.foto.startsWith('data:')) {
-          updateData.foto = data.foto;
-        } else {
-          updateData.foto = `data:image/jpeg;base64,${data.foto}`;
-        }
-        console.log('📷 Photo updated:', `String(${updateData.foto.length} chars)`);
-      }
+      updateData.foto = data.foto; // Store filename or null
+      console.log('📷 Photo updated:', data.foto || 'deleted');
     }
 
     console.log('💾 Updating MySQL database with:', {
       ...updateData,
-      foto: updateData.foto ? `String(${updateData.foto.length} chars)` : updateData.foto
+      foto: updateData.foto || 'no change'
     });
 
     await db.update(employeesTable)

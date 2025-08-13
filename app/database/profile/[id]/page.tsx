@@ -197,7 +197,10 @@ const AttendanceTable = ({ records, loading, selectedMonth }: {
 const ProfilePage = () => {
     const router = useRouter();
     const params = useParams();
-    const employeeId = params.id as string;
+    const rawEmployeeId = params.id as string;
+    
+    // Clean the employeeId to remove file extensions (.jpg, .png, etc.)
+    const employeeId = rawEmployeeId?.replace(/\.(jpg|jpeg|png|gif)$/i, '') || '';
     
     const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date()); // Current month
 
@@ -219,7 +222,7 @@ const ProfilePage = () => {
                 jabatan: data.jabatan,
                 pangkat: data.pangkat,
                 status: data.status || 'aktif',
-                imageUrl: data.foto || undefined,
+                imageUrl: data.foto ? `/${data.foto}` : undefined,
             };
         },
         enabled: !!employeeId,
