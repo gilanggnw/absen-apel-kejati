@@ -235,12 +235,12 @@ const EditEmployeePage = () => {
                                     </label>
                                     <div className="flex items-start gap-4">
                                         {/* Photo Preview */}
-                                        <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                                        <div className="w-24 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50" style={{ aspectRatio: '3/4' }}>
                                             {photoPreview ? (
                                                 <NextImage
                                                     src={photoPreview}
                                                     alt="Preview"
-                                                    width={128}
+                                                    width={96}
                                                     height={128}
                                                     className="w-full h-full object-cover rounded-lg"
                                                 />

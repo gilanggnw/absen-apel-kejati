@@ -398,14 +398,16 @@ const DatabasePage = () => {
                       />
                       {photoPreview && (
                         <div className="mt-2">
-                          <Image
-                            src={photoPreview}
-                            alt="Preview"
-                            width={96}
-                            height={96}
-                            className="w-24 h-24 object-cover rounded-lg border border-gray-300"
-                            unoptimized
-                          />
+                          <div className="w-20 h-24 rounded-lg overflow-hidden border border-gray-300" style={{ aspectRatio: '3/4' }}>
+                            <Image
+                              src={photoPreview}
+                              alt="Preview"
+                              width={72}
+                              height={96}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          </div>
                         </div>
                       )}
                     </div>

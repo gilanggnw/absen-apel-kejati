@@ -119,6 +119,41 @@ function FotoPageContent() {
     }
   }, []);
 
+  // Function to compress image
+  const compressImage = (canvas: HTMLCanvasElement, quality: number, maxWidth: number, maxHeight: number): string => {
+    const context = canvas.getContext('2d');
+    if (!context) return '';
+
+    // Calculate new dimensions while maintaining aspect ratio
+    let { width, height } = canvas;
+    
+    if (width > height) {
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+    } else {
+      if (height > maxHeight) {
+        width = (width * maxHeight) / height;
+        height = maxHeight;
+      }
+    }
+
+    // Create a new canvas with compressed dimensions
+    const compressedCanvas = document.createElement('canvas');
+    compressedCanvas.width = width;
+    compressedCanvas.height = height;
+    
+    const compressedContext = compressedCanvas.getContext('2d');
+    if (!compressedContext) return '';
+
+    // Draw the original image onto the compressed canvas
+    compressedContext.drawImage(canvas, 0, 0, width, height);
+
+    // Return compressed image as JPEG with specified quality
+    return compressedCanvas.toDataURL('image/jpeg', quality);
+  };
+
   // Function to capture a photo from the video stream
   const handleTakePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -133,8 +168,8 @@ function FotoPageContent() {
       const context = canvas.getContext('2d');
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Get the image data URL from the canvas
-      const dataUrl = canvas.toDataURL('image/png');
+      // Get the image data URL from the canvas with compression
+      const dataUrl = compressImage(canvas, 0.7, 800, 600); // Compress with 70% quality, max 800x600
       setCapturedImage(dataUrl);
 
       // Stop the camera after taking the photo
@@ -236,19 +271,22 @@ function FotoPageContent() {
       {/* Sidebar Section */}
       <aside className="w-1/4 bg-gray-100 p-8 flex flex-col items-center text-center border-r border-gray-200">
         {/* Profile Picture */}
-        <div className="w-40 h-40 bg-gray-500 rounded-full mb-6 shadow-md overflow-hidden flex items-center justify-center">
+        <div className="w-36 h-48 bg-gray-500 rounded-lg mb-6 shadow-md overflow-hidden flex items-center justify-center" style={{ aspectRatio: '3/4' }}>
           {isLoadingEmployee ? (
             <div className="animate-spin h-8 w-8 border-2 border-gray-300 border-t-gray-600 rounded-full"></div>
-          ) : employee?.foto ? (
-            <Image
-              src={employee.foto}
-              alt={employee.nama}
-              width={160}
-              height={160}
-              className="w-full h-full object-cover"
-            />
           ) : (
-            <div className="text-gray-300 text-6xl">👤</div>
+            <Image
+              src={employee?.foto 
+                ? (employee.foto.startsWith('data:') || employee.foto.startsWith('/') || employee.foto.startsWith('http') 
+                    ? employee.foto 
+                    : `/${employee.foto}`)
+                : '/blank-person.svg'
+              }
+              alt={employee?.nama || 'Employee'}
+              width={144}
+              height={192}
+              className="w-full h-full object-cover bg-gray-100"
+            />
           )}
         </div>
         
@@ -380,7 +418,7 @@ function FotoPageLoading() {
   return (
     <div className="flex h-screen bg-white font-sans">
       <aside className="w-1/4 bg-gray-100 p-8 flex flex-col items-center text-center border-r border-gray-200">
-        <div className="w-40 h-40 bg-gray-300 rounded-full mb-6 shadow-md animate-pulse"></div>
+        <div className="w-36 h-48 bg-gray-300 rounded-lg mb-6 shadow-md animate-pulse" style={{ aspectRatio: '3/4' }}></div>
         <div className="space-y-2">
           <div className="h-6 bg-gray-300 rounded w-32 animate-pulse"></div>
           <div className="h-4 bg-gray-300 rounded w-24 animate-pulse"></div>

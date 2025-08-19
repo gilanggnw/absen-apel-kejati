@@ -536,20 +536,26 @@ const VerifikasiPage = () => {
                     }
                     if (photos.employeePhoto) {
                       return (
-                        <div className="w-56 h-56 bg-gray-200 rounded-lg overflow-hidden">
+                        <div className="w-48 h-64 bg-gray-200 rounded-lg overflow-hidden" style={{ aspectRatio: '3/4' }}>
                           <Image 
                             src={photos.employeePhoto}
                             alt="Employee Profile Photo"
-                            width={224}
-                            height={224}
+                            width={192}
+                            height={256}
                             className="w-full h-full object-cover"
                           />
                         </div>
                       );
                     }
                     return (
-                      <div className="w-56 h-56 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-base">
-                        No Profile Photo
+                      <div className="w-48 h-64 bg-gray-200 rounded-lg overflow-hidden" style={{ aspectRatio: '3/4' }}>
+                        <Image 
+                          src="/blank-person.svg"
+                          alt="No Employee Photo"
+                          width={192}
+                          height={256}
+                          className="w-full h-full object-cover bg-gray-100"
+                        />
                       </div>
                     );
                   })()}

@@ -111,14 +111,16 @@ const EmployeeInfo = ({ employee }: { employee: Employee }) => (
                 </span>
             </div>
         </div>
-        <Image
-            src={employee.imageUrl || `https://placehold.co/128x128/334155/ffffff?text=${employee.nama.charAt(0)}`}
-            alt="Profile"
-            width={128}
-            height={128}
-            className="w-32 h-32 rounded-lg object-cover shadow-lg ring-2 ring-gray-300"
-            onError={(e) => { e.currentTarget.src='https://placehold.co/128x128/e2e8f0/4a5568?text=Photo'; }}
-        />
+        <div className="w-24 h-32 rounded-lg overflow-hidden shadow-lg ring-2 ring-gray-300" style={{ aspectRatio: '3/4' }}>
+            <Image
+                src={employee.imageUrl || `/blank-person.svg`}
+                alt="Profile"
+                width={96}
+                height={128}
+                className="w-full h-full object-cover"
+                onError={(e) => { e.currentTarget.src='/blank-person.svg'; }}
+            />
+        </div>
     </div>
 );
 

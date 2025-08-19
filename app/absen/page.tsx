@@ -241,15 +241,19 @@ export default function Page() {
                             <div className="text-sm text-gray-500">{employee.jabatan}</div>
                           )}
                         </div>
-                        {employee.foto && (
-                          <Image
-                            src={employee.foto}
-                            alt={employee.nama}
-                            width={40}
-                            height={40}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        )}
+                        <Image
+                          src={employee.foto 
+                            ? (employee.foto.startsWith('data:') || employee.foto.startsWith('/') || employee.foto.startsWith('http') 
+                                ? employee.foto 
+                                : `/${employee.foto}`)
+                            : '/blank-person.svg'
+                          }
+                          alt={employee.nama}
+                          width={30}
+                          height={40}
+                          className="w-8 h-10 rounded-sm object-cover bg-gray-100"
+                          style={{ aspectRatio: '3/4' }}
+                        />
                       </div>
                     </div>
                   ))

@@ -243,7 +243,11 @@ export async function getAttendancePhotos(recordId: string): Promise<{
 
     return {
       photo: blobToBase64(result[0].photo as string | null),
-      employeePhoto: blobToBase64(result[0].employeePhoto as string | null),
+      employeePhoto: result[0].employeePhoto 
+        ? (result[0].employeePhoto.startsWith('data:') || result[0].employeePhoto.startsWith('/') || result[0].employeePhoto.startsWith('http')
+            ? result[0].employeePhoto
+            : `/${result[0].employeePhoto}`)
+        : null,
     };
   } catch (error) {
     console.error('❌ Error fetching attendance photos:', error);
