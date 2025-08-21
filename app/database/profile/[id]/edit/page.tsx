@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import NextImage from 'next/image';
-import { getEmployeeById, updateEmployee, type UpdateEmployeeData, type DatabaseEmployee } from '../../../actions';
+import { getEmployeeById, getEmployeeByNip, updateEmployee, type UpdateEmployeeData, type DatabaseEmployee } from '../../../actions';
 import Sidebar from '../../../../components/Sidebar';
 import Header from '../../../../components/Header';
 
@@ -11,7 +11,12 @@ import Header from '../../../../components/Header';
 const EditEmployeePage = () => {
     const router = useRouter();
     const params = useParams();
-    const employeeId = params.id as string;
+    
+    // Clean the employee ID by removing any file extension that might have been appended
+    const rawEmployeeId = params.id as string;
+    const employeeId = rawEmployeeId ? rawEmployeeId.replace(/\.(jpg|jpeg|png|gif|bmp|webp)$/i, '') : '';
+    
+    console.log('🆔 Edit page URL Params:', { rawEmployeeId, cleanedEmployeeId: employeeId });
     
     const [employee, setEmployee] = useState<DatabaseEmployee | null>(null);
     const [loading, setLoading] = useState(true);
@@ -34,8 +39,30 @@ const EditEmployeePage = () => {
             if (employeeId) {
                 setLoading(true);
                 try {
-                    const data = await getEmployeeById(parseInt(employeeId));
+                    const numericId = parseInt(employeeId);
+                    let data = null;
+                    
+                    // First, try to get by numeric ID
+                    if (!isNaN(numericId)) {
+                        console.log('🔍 Edit page trying to fetch employee by ID:', numericId);
+                        data = await getEmployeeById(numericId);
+                    }
+                    
+                    // If not found by ID, try by NIP (in case the URL contains a NIP)
+                    if (!data) {
+                        console.log('🔍 Edit page trying to fetch employee by NIP:', employeeId);
+                        data = await getEmployeeByNip(employeeId);
+                        
+                        // If found by NIP, redirect to the correct URL with the employee ID
+                        if (data) {
+                            console.log('✅ Edit page: Employee found by NIP, redirecting to correct URL');
+                            // Use replace to avoid adding to history
+                            window.history.replaceState(null, '', `/database/profile/${data.id}/edit`);
+                        }
+                    }
+                    
                     if (data) {
+                        console.log('✅ Edit page employee data fetched:', { id: data.id, nama: data.nama, hasFoto: !!data.foto });
                         setEmployee(data);
                         setFormData({
                             nama: data.nama,
@@ -45,15 +72,38 @@ const EditEmployeePage = () => {
                         });
                         // Set photo preview if exists
                         if (data.foto) {
-                            // foto is already a base64 data URL from the server
-                            setPhotoPreview(data.foto);
+                            if (typeof data.foto === 'string') {
+                                if (data.foto.startsWith('data:')) {
+                                    // Base64 data URL - use directly
+                                    console.log('📸 Setting photo preview from base64 data');
+                                    setPhotoPreview(data.foto);
+                                } else if (data.foto.startsWith('/')) {
+                                    // Public path URL - use directly
+                                    console.log('📸 Setting photo preview from public path:', data.foto);
+                                    setPhotoPreview(data.foto);
+                                } else {
+                                    console.log('⚠️ Unknown photo data format, skipping photo preview:', typeof data.foto, data.foto?.substring(0, 50));
+                                    setPhotoPreview('');
+                                }
+                            } else {
+                                console.log('⚠️ Invalid photo data type, skipping photo preview:', typeof data.foto);
+                                setPhotoPreview('');
+                            }
+                        } else {
+                            console.log('ℹ️ No photo data available');
+                            setPhotoPreview('');
                         }
+                    } else {
+                        console.log('❌ Edit page: No employee found for:', employeeId);
                     }
                 } catch (error) {
-                    console.error('Failed to fetch employee:', error);
+                    console.error('❌ Edit page: Error fetching employee:', error);
                 } finally {
                     setLoading(false);
                 }
+            } else {
+                console.log('❌ Edit page: No employee ID provided');
+                setLoading(false);
             }
         };
         fetchEmployee();
@@ -238,11 +288,15 @@ const EditEmployeePage = () => {
                                         <div className="w-24 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50" style={{ aspectRatio: '3/4' }}>
                                             {photoPreview ? (
                                                 <NextImage
-                                                    src={photoPreview}
+                                                    src={photoPreview.startsWith('data:') || photoPreview.startsWith('/') ? photoPreview : '/blank-person.svg'}
                                                     alt="Preview"
                                                     width={96}
                                                     height={128}
                                                     className="w-full h-full object-cover rounded-lg"
+                                                    onError={(e) => {
+                                                        console.log('🚫 Photo preview error, falling back to blank person. Original URL:', photoPreview);
+                                                        e.currentTarget.src = '/blank-person.svg';
+                                                    }}
                                                 />
                                             ) : (
                                                 <div className="text-center text-gray-400">

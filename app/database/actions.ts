@@ -38,17 +38,98 @@ export async function getEmployees(): Promise<DatabaseEmployee[]> {
 
 export async function getEmployeeById(id: number): Promise<DatabaseEmployee | null> {
   try {
+    console.log('🔍 getEmployeeById called with ID:', id);
     const employees = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
+    
     if (employees[0]) {
+      const employee = employees[0];
+      console.log('✅ Employee found:', { 
+        id: employee.id, 
+        nip: employee.nip, 
+        nama: employee.nama, 
+        hasFoto: !!employee.foto,
+        fotoType: typeof employee.foto,
+        fotoPreview: employee.foto ? employee.foto.substring(0, 50) + '...' : 'null'
+      });
+      
+      // Validate and process the foto field
+      let processedFoto = null;
+      if (employee.foto && typeof employee.foto === 'string') {
+        if (employee.foto.startsWith('data:')) {
+          // Base64 data URL - use as is
+          processedFoto = employee.foto;
+          console.log('📸 Using base64 foto data');
+        } else if (employee.foto.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)) {
+          // Filename - convert to public URL path
+          processedFoto = `/${employee.foto}`;
+          console.log('📸 Converting filename to public URL:', processedFoto);
+        } else {
+          console.log('⚠️ Invalid foto format detected, setting to null:', employee.foto.substring(0, 50));
+          processedFoto = null;
+        }
+      }
+      
       return {
-        ...employees[0],
-        foto: employees[0].foto && typeof employees[0].foto === 'string' ? employees[0].foto : null,
-        status: employees[0].status || 'aktif' // Ensure status has a default value
+        ...employee,
+        foto: processedFoto,
+        status: employee.status || 'aktif' // Ensure status has a default value
       };
     }
+    
+    console.log('❌ No employee found for ID:', id);
     return null;
   } catch (error) {
-    console.error('Failed to fetch employee:', error);
+    console.error('❌ Failed to fetch employee:', error);
+    return null;
+  }
+}
+
+export async function getEmployeeByNip(nip: string): Promise<DatabaseEmployee | null> {
+  try {
+    console.log('🔍 getEmployeeByNip called with NIP:', nip);
+    // Clean the NIP by removing any file extension
+    const cleanNip = nip.replace(/\.(jpg|jpeg|png|gif|bmp|webp)$/i, '');
+    console.log('🧹 Cleaned NIP:', cleanNip);
+    
+    const employees = await db.select().from(employeesTable).where(eq(employeesTable.nip, cleanNip));
+    
+    if (employees[0]) {
+      const employee = employees[0];
+      console.log('✅ Employee found by NIP:', { 
+        id: employee.id, 
+        nip: employee.nip, 
+        nama: employee.nama, 
+        hasFoto: !!employee.foto
+      });
+      
+      // Validate and process the foto field
+      let processedFoto = null;
+      if (employee.foto && typeof employee.foto === 'string') {
+        if (employee.foto.startsWith('data:')) {
+          // Base64 data URL - use as is
+          processedFoto = employee.foto;
+          console.log('📸 Using base64 foto data from NIP lookup');
+        } else if (employee.foto.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)) {
+          // Filename - convert to public URL path
+          processedFoto = `/${employee.foto}`;
+          console.log('📸 Converting filename to public URL from NIP lookup:', processedFoto);
+        } else {
+          console.log('⚠️ Invalid foto format detected in NIP lookup, setting to null:', employee.foto.substring(0, 50));
+          processedFoto = null;
+        }
+      }
+      
+      return {
+        ...employee,
+        foto: processedFoto,
+        status: employee.status || 'aktif'
+      };
+    }
+    
+    console.log('❌ No employee found for NIP:', cleanNip);
+    return null;
+  } catch (error) {
+    console.error('❌ Failed to fetch employee by NIP:', error);
     return null;
   }
 }

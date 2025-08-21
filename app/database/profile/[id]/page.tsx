@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import NextImage from 'next/image';
 import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
-import { getEmployeeById, getAttendanceHistoryByNip, type AttendanceHistoryRecord } from '../../actions';
+import { getEmployeeById, getEmployeeByNip, getAttendanceHistoryByNip, type AttendanceHistoryRecord } from '../../actions';
 import Sidebar from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 
@@ -90,39 +90,69 @@ interface Employee {
     imageUrl?: string;
 }
 
-const EmployeeInfo = ({ employee }: { employee: Employee }) => (
-    <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-lg border mb-8 gap-6">
-        <div className="w-full md:w-auto">
-            <h2 className="text-lg font-bold mb-4">Informasi Pegawai</h2>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-2">
-                <span className="font-semibold text-gray-700">Nama Pegawai:</span>
-                <span className="text-black">{employee.nama}</span>
-                <span className="font-semibold text-gray-700">NIP:</span>
-                <span className="text-black">{employee.nip}</span>
-                <span className="font-semibold text-gray-700">Jabatan:</span>
-                <span className="text-black">{employee.jabatan || '-'}</span>
-                <span className="font-semibold text-gray-700">Pangkat:</span>
-                <span className="text-black">{employee.pangkat || '-'}</span>
-                <span className="font-semibold text-gray-700">Status:</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    employee.status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                    {employee.status === 'aktif' ? 'Aktif' : 'Non-Aktif'}
-                </span>
+const EmployeeInfo = ({ employee }: { employee: Employee }) => {
+    // Handle image URL - support both base64 data and public file paths
+    let imageUrl = '/blank-person.svg'; // default fallback
+    
+    if (employee.imageUrl) {
+        if (employee.imageUrl.startsWith('data:')) {
+            // Base64 data URL - use as is
+            imageUrl = employee.imageUrl;
+        } else if (employee.imageUrl.startsWith('/')) {
+            // Already a proper path - use as is
+            imageUrl = employee.imageUrl;
+        } else {
+            // Assume it's a filename - add leading slash for public path
+            imageUrl = `/${employee.imageUrl}`;
+        }
+    }
+    
+    console.log('🖼️ Image URL for employee:', { 
+        nip: employee.nip, 
+        hasImageUrl: !!employee.imageUrl, 
+        originalImageUrl: employee.imageUrl,
+        processedImageUrl: imageUrl,
+        isBase64: employee.imageUrl?.startsWith('data:'),
+        isPublicPath: imageUrl.startsWith('/') && !imageUrl.startsWith('data:')
+    });
+    
+    return (
+        <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-lg border mb-8 gap-6">
+            <div className="w-full md:w-auto">
+                <h2 className="text-lg font-bold mb-4">Informasi Pegawai</h2>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                    <span className="font-semibold text-gray-700">Nama Pegawai:</span>
+                    <span className="text-black">{employee.nama}</span>
+                    <span className="font-semibold text-gray-700">NIP:</span>
+                    <span className="text-black">{employee.nip}</span>
+                    <span className="font-semibold text-gray-700">Jabatan:</span>
+                    <span className="text-black">{employee.jabatan || '-'}</span>
+                    <span className="font-semibold text-gray-700">Pangkat:</span>
+                    <span className="text-black">{employee.pangkat || '-'}</span>
+                    <span className="font-semibold text-gray-700">Status:</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        employee.status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                        {employee.status === 'aktif' ? 'Aktif' : 'Non-Aktif'}
+                    </span>
+                </div>
+            </div>
+            <div className="w-24 h-32 rounded-lg overflow-hidden shadow-lg ring-2 ring-gray-300" style={{ aspectRatio: '3/4' }}>
+                <Image
+                    src={imageUrl}
+                    alt="Profile"
+                    width={96}
+                    height={128}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { 
+                        console.log('🚫 Image load error for employee:', employee.nip, 'URL:', imageUrl);
+                        e.currentTarget.src='/blank-person.svg'; 
+                    }}
+                />
             </div>
         </div>
-        <div className="w-24 h-32 rounded-lg overflow-hidden shadow-lg ring-2 ring-gray-300" style={{ aspectRatio: '3/4' }}>
-            <Image
-                src={employee.imageUrl || `/blank-person.svg`}
-                alt="Profile"
-                width={96}
-                height={128}
-                className="w-full h-full object-cover"
-                onError={(e) => { e.currentTarget.src='/blank-person.svg'; }}
-            />
-        </div>
-    </div>
-);
+    );
+};
 
 // Attendance Table
 const AttendanceTable = ({ records, loading, selectedMonth }: { 
@@ -199,7 +229,12 @@ const AttendanceTable = ({ records, loading, selectedMonth }: {
 const ProfilePage = () => {
     const router = useRouter();
     const params = useParams();
-    const employeeId = params.id as string;
+    
+    // Clean the employee ID by removing any file extension that might have been appended
+    const rawEmployeeId = params.id as string;
+    const employeeId = rawEmployeeId ? rawEmployeeId.replace(/\.(jpg|jpeg|png|gif|bmp|webp)$/i, '') : '';
+    
+    console.log('🆔 URL Params:', { rawEmployeeId, cleanedEmployeeId: employeeId });
     
     const [selectedMonth, setSelectedMonth] = useState<Date | null>(new Date()); // Current month
 
@@ -210,9 +245,39 @@ const ProfilePage = () => {
     } = useQuery({
         queryKey: ['employee', employeeId],
         queryFn: async () => {
-            if (!employeeId) return null;
-            const data = await getEmployeeById(parseInt(employeeId));
-            if (!data) return null;
+            if (!employeeId) {
+                console.log('❌ No employee ID provided');
+                return null;
+            }
+            
+            const numericId = parseInt(employeeId);
+            let data = null;
+            
+            // First, try to get by numeric ID
+            if (!isNaN(numericId)) {
+                console.log('🔍 Trying to fetch employee by ID:', numericId);
+                data = await getEmployeeById(numericId);
+            }
+            
+            // If not found by ID, try by NIP (in case the URL contains a NIP)
+            if (!data) {
+                console.log('🔍 Trying to fetch employee by NIP:', employeeId);
+                data = await getEmployeeByNip(employeeId);
+                
+                // If found by NIP, redirect to the correct URL with the employee ID
+                if (data) {
+                    console.log('✅ Employee found by NIP, redirecting to correct URL');
+                    // Use replace to avoid adding to history
+                    window.history.replaceState(null, '', `/database/profile/${data.id}`);
+                }
+            }
+            
+            if (!data) {
+                console.log('❌ No employee found for:', employeeId);
+                return null;
+            }
+            
+            console.log('✅ Employee data fetched:', { id: data.id, nama: data.nama, nip: data.nip, hasFoto: !!data.foto });
             
             return {
                 id: data.id,

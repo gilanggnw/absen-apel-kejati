@@ -244,3 +244,154 @@ export async function getDatesWithAttendanceRecordsForRekap(): Promise<string[]>
     return [];
   }
 }
+
+// Helper function to get month range in UTC timestamps
+function getMonthRangeUTC(year: number, month: number): { start: number; end: number } {
+  // Create start of month in GMT+7 (00:00:00 on first day)
+  const startGMT7 = Date.UTC(year, month, 1, 0, 0, 0, 0);
+  const startUTC = startGMT7 - (7 * 60 * 60 * 1000);
+  
+  // Create end of month in GMT+7 (23:59:59 on last day)
+  const endGMT7 = Date.UTC(year, month + 1, 0, 23, 59, 59, 999);
+  const endUTC = endGMT7 - (7 * 60 * 60 * 1000);
+  
+  console.log('🗓️ Month range calculation:');
+  console.log('   Target month:', `${year}-${String(month + 1).padStart(2, '0')}`);
+  console.log('   UTC start timestamp:', startUTC, '→', new Date(startUTC).toISOString());
+  console.log('   UTC end timestamp:', endUTC, '→', new Date(endUTC).toISOString());
+  
+  return { start: startUTC, end: endUTC };
+}
+
+// Get all attendance records for a specific month
+export async function getAttendanceForMonth(year: number, month: number): Promise<RekapAttendanceRecord[]> {
+  try {
+    const { start, end } = getMonthRangeUTC(year, month);
+
+    console.log('🔎 Monthly rekap query filtering with UTC range:', start, 'to', end);
+
+    const records = await db
+      .select({
+        id: attendanceTable.id,
+        nip: attendanceTable.nip,
+        nama: employeesTable.nama,
+        timestamp: attendanceTable.timestamp,
+        status: attendanceTable.status,
+      })
+      .from(attendanceTable)
+      .innerJoin(employeesTable, eq(attendanceTable.nip, employeesTable.nip))
+      .where(
+        and(
+          gte(attendanceTable.timestamp, start),
+          lte(attendanceTable.timestamp, end)
+        )
+      )
+      .orderBy(desc(attendanceTable.timestamp));
+
+    return records.map(record => ({
+      ...record,
+      nip: record.nip || '',
+      nama: record.nama || '',
+      status: record.status || '',
+    }));
+  } catch (error) {
+    console.error('Error fetching monthly attendance records from MySQL:', error);
+    return [];
+  }
+}
+
+// Get stats for a specific month
+export async function getRekapStatsForMonth(year: number, month: number): Promise<RekapStats> {
+  try {
+    // Get total employees count
+    const [totalEmployeesResult] = await db
+      .select({ count: count() })
+      .from(employeesTable);
+    
+    const totalEmployees = totalEmployeesResult?.count || 0;
+
+    // Get attendance records for the month
+    const { start, end } = getMonthRangeUTC(year, month);
+
+    const attendanceRecords = await db
+      .select({
+        status: attendanceTable.status,
+      })
+      .from(attendanceTable)
+      .where(
+        and(
+          gte(attendanceTable.timestamp, start),
+          lte(attendanceTable.timestamp, end)
+        )
+      );
+
+    const onTime = attendanceRecords.filter(r => 
+      r.status?.toLowerCase().includes('tepat waktu') || 
+      (!r.status?.toLowerCase().includes('telat') && !r.status?.toLowerCase().includes('terlambat'))
+    ).length;
+    const late = attendanceRecords.filter(r => 
+      r.status?.toLowerCase().includes('telat') || 
+      r.status?.toLowerCase().includes('terlambat')
+    ).length;
+
+    // Calculate unique employees who attended during the month
+    const uniqueAttendees = await db
+      .selectDistinct({
+        nip: attendanceTable.nip,
+      })
+      .from(attendanceTable)
+      .where(
+        and(
+          gte(attendanceTable.timestamp, start),
+          lte(attendanceTable.timestamp, end)
+        )
+      );
+
+    const present = uniqueAttendees.length;
+    const absent = totalEmployees - present;
+
+    return {
+      total: totalEmployees,
+      present,
+      absent,
+      onTime,
+      late,
+    };
+  } catch (error) {
+    console.error('Error fetching monthly rekap stats from MySQL:', error);
+    return {
+      total: 0,
+      present: 0,
+      absent: 0,
+      onTime: 0,
+      late: 0,
+    };
+  }
+}
+
+// Get available months with attendance records
+export async function getMonthsWithAttendanceRecords(): Promise<string[]> {
+  try {
+    const records = await db
+      .select({
+        timestamp: attendanceTable.timestamp,
+      })
+      .from(attendanceTable);
+
+    // Convert timestamps to month strings in GMT+7 timezone
+    const monthsWithRecords = records.map(record => {
+      const date = new Date(record.timestamp);
+      // Convert to GMT+7
+      const gmt7Date = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+      const year = gmt7Date.getUTCFullYear();
+      const month = String(gmt7Date.getUTCMonth() + 1).padStart(2, '0');
+      return `${year}-${month}`;
+    });
+
+    // Remove duplicates and return unique months, sorted in descending order
+    return [...new Set(monthsWithRecords)].sort().reverse();
+  } catch (error) {
+    console.error('Error fetching months with attendance records from MySQL:', error);
+    return [];
+  }
+}
