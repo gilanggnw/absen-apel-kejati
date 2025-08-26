@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { db } from './mysql';
 import { usersTable, employeesTable } from './schema-mysql';
+import { eq } from 'drizzle-orm';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -14,9 +15,20 @@ function getEmployeePhoto(nip: string): string | null {
     
     if (fs.existsSync(photoPath)) {
       try {
+        // Check file size first (limit to 2MB to prevent huge base64 strings)
+        const stats = fs.statSync(photoPath);
+        const fileSizeInMB = stats.size / (1024 * 1024);
+        
+        if (fileSizeInMB > 2) {
+          console.warn(`⚠️  Photo for NIP ${nip} is too large (${fileSizeInMB.toFixed(2)}MB), skipping...`);
+          return null;
+        }
+        
         const photoBuffer = fs.readFileSync(photoPath);
         const base64Photo = photoBuffer.toString('base64');
         const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        
+        console.log(`📷 Processed photo for NIP ${nip} (${fileSizeInMB.toFixed(2)}MB)`);
         return `data:${mimeType};base64,${base64Photo}`;
       } catch (error) {
         console.warn(`⚠️  Could not read photo for NIP ${nip}: ${error}`);
@@ -580,21 +592,62 @@ export async function seedEmployees() {
   try {
     console.log('🌱 Starting to seed employees table...');
     
-    // Add photos to employee data
-    const employeesWithPhotos = employeeData.map(employee => {
+    // First, insert employees without photos to avoid large payloads
+    console.log('� Step 1: Inserting employee data (without photos)...');
+    const batchSize = 20; // Larger batch size for data without photos
+    const batches = [];
+    
+    for (let i = 0; i < employeeData.length; i += batchSize) {
+      batches.push(employeeData.slice(i, i + batchSize));
+    }
+    
+    console.log(`📦 Processing ${batches.length} batches of ${batchSize} employees each...`);
+    
+    let totalInserted = 0;
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      try {
+        await db.insert(employeesTable).values(batch);
+        totalInserted += batch.length;
+        console.log(`✅ Batch ${i + 1}/${batches.length} completed (${batch.length} employees)`);
+      } catch (batchError) {
+        console.error(`❌ Error in batch ${i + 1}:`, batchError);
+        // Continue with next batch instead of failing completely
+      }
+    }
+    
+    console.log(`✅ Successfully inserted ${totalInserted} employees`);
+    
+    // Second, update with photos one by one to avoid timeout
+    console.log('📷 Step 2: Adding photos to existing employees...');
+    let photosAdded = 0;
+    
+    for (let i = 0; i < employeeData.length; i++) {
+      const employee = employeeData[i];
       const photo = getEmployeePhoto(employee.nip);
-      return {
-        ...employee,
-        foto: photo  // Use 'foto' to match the MySQL schema column name
-      };
-    });
+      
+      if (photo) {
+        try {
+          await db.update(employeesTable)
+            .set({ foto: photo })
+            .where(eq(employeesTable.nip, employee.nip));
+          photosAdded++;
+          
+          if (photosAdded % 10 === 0) {
+            console.log(`📷 Added ${photosAdded} photos so far...`);
+          }
+          
+          // Small delay to prevent overwhelming the connection
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (photoError) {
+          console.warn(`⚠️  Failed to add photo for ${employee.nip}:`, photoError);
+        }
+      }
+    }
     
-    // Count how many photos were found
-    const photosFound = employeesWithPhotos.filter(emp => emp.foto !== null).length;
-    console.log(`📷 Found photos for ${photosFound} out of ${employeesWithPhotos.length} employees`);
+    console.log(`📷 Successfully added ${photosAdded} photos to employees`);
+    console.log(`✅ Seeding completed! Total: ${totalInserted} employees with ${photosAdded} photos`);
     
-    await db.insert(employeesTable).values(employeesWithPhotos);
-    console.log(`✅ Successfully inserted ${employeesWithPhotos.length} employees with photos`);
   } catch (error) {
     console.error('❌ Error seeding employees:', error);
   }
