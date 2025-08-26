@@ -5,8 +5,8 @@ import { eq } from 'drizzle-orm';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Helper function to find employee photo path
-function getEmployeePhotoPath(nip: string): string | null {
+// Helper function to read and convert image to base64
+function getEmployeePhoto(nip: string): string | null {
   const publicDir = path.join(process.cwd(), 'public');
   const supportedExtensions = ['jpg', 'jpeg', 'png'];
   
@@ -14,10 +14,26 @@ function getEmployeePhotoPath(nip: string): string | null {
     const photoPath = path.join(publicDir, `${nip}.${ext}`);
     
     if (fs.existsSync(photoPath)) {
-      // Return the public URL path (not the full file system path)
-      const photoUrl = `/${nip}.${ext}`;
-      console.log(`📷 Found photo for NIP ${nip}: ${photoUrl}`);
-      return photoUrl;
+      try {
+        // Check file size first (limit to 2MB to prevent huge base64 strings)
+        const stats = fs.statSync(photoPath);
+        const fileSizeInMB = stats.size / (1024 * 1024);
+        
+        if (fileSizeInMB > 2) {
+          console.warn(`⚠️  Photo for NIP ${nip} is too large (${fileSizeInMB.toFixed(2)}MB), skipping...`);
+          return null;
+        }
+        
+        const photoBuffer = fs.readFileSync(photoPath);
+        const base64Photo = photoBuffer.toString('base64');
+        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        
+        console.log(`📷 Processed photo for NIP ${nip} (${fileSizeInMB.toFixed(2)}MB)`);
+        return `data:${mimeType};base64,${base64Photo}`;
+      } catch (error) {
+        console.warn(`⚠️  Could not read photo for NIP ${nip}: ${error}`);
+        return null;
+      }
     }
   }
   
@@ -608,7 +624,7 @@ export async function seedEmployees() {
     
     for (let i = 0; i < employeeData.length; i++) {
       const employee = employeeData[i];
-      const photo = getEmployeePhotoPath(employee.nip);
+      const photo = getEmployeePhoto(employee.nip);
       
       if (photo) {
         try {
