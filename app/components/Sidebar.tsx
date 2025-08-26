@@ -70,19 +70,6 @@ const Sidebar = () => {
                             </Link>
                         </li>
                     )}
-                    
-                    {/* Show Storage only for superadmin */}
-                    {userRole === 'superadmin' && (
-                        <li className="mt-2">
-                            <Link href="/storage" passHref>
-                                <span
-                                    className={`${linkClasses} ${pathname === '/storage' ? activeLinkClasses : inactiveLinkClasses}`}
-                                >
-                                    Penyimpanan
-                                </span>
-                            </Link>
-                        </li>
-                    )}
                 </ul>
             </nav>
         </aside>
