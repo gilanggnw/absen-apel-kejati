@@ -585,12 +585,12 @@ export async function seedEmployees() {
       const photo = getEmployeePhoto(employee.nip);
       return {
         ...employee,
-        photo: photo
+        foto: photo  // Use 'foto' to match the MySQL schema column name
       };
     });
     
     // Count how many photos were found
-    const photosFound = employeesWithPhotos.filter(emp => emp.photo !== null).length;
+    const photosFound = employeesWithPhotos.filter(emp => emp.foto !== null).length;
     console.log(`📷 Found photos for ${photosFound} out of ${employeesWithPhotos.length} employees`);
     
     await db.insert(employeesTable).values(employeesWithPhotos);
