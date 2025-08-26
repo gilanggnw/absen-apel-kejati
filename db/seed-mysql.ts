@@ -1,6 +1,33 @@
 import 'dotenv/config';
 import { db } from './mysql';
 import { usersTable, employeesTable } from './schema-mysql';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Helper function to read and convert image to base64
+function getEmployeePhoto(nip: string): string | null {
+  const publicDir = path.join(process.cwd(), 'public');
+  const supportedExtensions = ['jpg', 'jpeg', 'png'];
+  
+  for (const ext of supportedExtensions) {
+    const photoPath = path.join(publicDir, `${nip}.${ext}`);
+    
+    if (fs.existsSync(photoPath)) {
+      try {
+        const photoBuffer = fs.readFileSync(photoPath);
+        const base64Photo = photoBuffer.toString('base64');
+        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        return `data:${mimeType};base64,${base64Photo}`;
+      } catch (error) {
+        console.warn(`⚠️  Could not read photo for NIP ${nip}: ${error}`);
+        return null;
+      }
+    }
+  }
+  
+  console.log(`📷 No photo found for NIP: ${nip}`);
+  return null;
+}
 
 export async function seedUsers() {
   try {
@@ -553,8 +580,21 @@ export async function seedEmployees() {
   try {
     console.log('🌱 Starting to seed employees table...');
     
-    await db.insert(employeesTable).values(employeeData);
-    console.log(`✅ Successfully inserted ${employeeData.length} employees`);
+    // Add photos to employee data
+    const employeesWithPhotos = employeeData.map(employee => {
+      const photo = getEmployeePhoto(employee.nip);
+      return {
+        ...employee,
+        photo: photo
+      };
+    });
+    
+    // Count how many photos were found
+    const photosFound = employeesWithPhotos.filter(emp => emp.photo !== null).length;
+    console.log(`📷 Found photos for ${photosFound} out of ${employeesWithPhotos.length} employees`);
+    
+    await db.insert(employeesTable).values(employeesWithPhotos);
+    console.log(`✅ Successfully inserted ${employeesWithPhotos.length} employees with photos`);
   } catch (error) {
     console.error('❌ Error seeding employees:', error);
   }
