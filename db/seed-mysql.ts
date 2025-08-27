@@ -4,9 +4,10 @@ import { usersTable, employeesTable } from './schema-mysql';
 import { eq } from 'drizzle-orm';
 import * as fs from 'fs';
 import * as path from 'path';
+import sharp from 'sharp';
 
-// Helper function to read and convert image to base64
-function getEmployeePhoto(nip: string): string | null {
+// Helper function to read and convert image to base64 with compression
+async function getEmployeePhoto(nip: string): Promise<string | null> {
   const publicDir = path.join(process.cwd(), 'public');
   const supportedExtensions = ['jpg', 'jpeg', 'png'];
   
@@ -15,21 +16,49 @@ function getEmployeePhoto(nip: string): string | null {
     
     if (fs.existsSync(photoPath)) {
       try {
-        // Check file size first (limit to 2MB to prevent huge base64 strings)
+        // Check file size first
         const stats = fs.statSync(photoPath);
         const fileSizeInMB = stats.size / (1024 * 1024);
         
-        if (fileSizeInMB > 2) {
-          console.warn(`⚠️  Photo for NIP ${nip} is too large (${fileSizeInMB.toFixed(2)}MB), skipping...`);
-          return null;
+        let photoBuffer: Buffer;
+        
+        if (fileSizeInMB > 1) {
+          console.log(`🔄 Compressing large photo for NIP ${nip} (${fileSizeInMB.toFixed(2)}MB)...`);
+          
+          try {
+            // Compress and resize image using sharp
+            photoBuffer = await sharp(photoPath)
+              .resize(800, 600, { 
+                fit: 'inside', 
+                withoutEnlargement: true 
+              })
+              .jpeg({ 
+                quality: 80, 
+                progressive: true 
+              })
+              .toBuffer();
+              
+            const compressedSizeInMB = photoBuffer.length / (1024 * 1024);
+            console.log(`✅ Compressed photo for NIP ${nip}: ${fileSizeInMB.toFixed(2)}MB → ${compressedSizeInMB.toFixed(2)}MB`);
+            
+            // If still too large after compression, skip it
+            if (compressedSizeInMB > 1.5) {
+              console.warn(`⚠️  Photo for NIP ${nip} still too large after compression (${compressedSizeInMB.toFixed(2)}MB), skipping...`);
+              return null;
+            }
+          } catch (compressionError) {
+            console.warn(`⚠️  Could not compress photo for NIP ${nip}: ${compressionError}, skipping...`);
+            return null;
+          }
+        } else {
+          // Read as-is for smaller files
+          photoBuffer = fs.readFileSync(photoPath);
+          console.log(`📷 Processed photo for NIP ${nip} (${fileSizeInMB.toFixed(2)}MB)`);
         }
         
-        const photoBuffer = fs.readFileSync(photoPath);
         const base64Photo = photoBuffer.toString('base64');
-        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        return `data:image/jpeg;base64,${base64Photo}`;
         
-        console.log(`📷 Processed photo for NIP ${nip} (${fileSizeInMB.toFixed(2)}MB)`);
-        return `data:${mimeType};base64,${base64Photo}`;
       } catch (error) {
         console.warn(`⚠️  Could not read photo for NIP ${nip}: ${error}`);
         return null;
@@ -618,30 +647,71 @@ export async function seedEmployees() {
     
     console.log(`✅ Successfully inserted ${totalInserted} employees`);
     
-    // Second, update with photos one by one to avoid timeout
+    // Second, update with photos with better error handling and retry logic
     console.log('📷 Step 2: Adding photos to existing employees...');
     let photosAdded = 0;
+    let retryCount = 0;
+    const maxRetries = 3;
     
-    for (let i = 0; i < employeeData.length; i++) {
-      const employee = employeeData[i];
-      const photo = getEmployeePhoto(employee.nip);
+    // Process photos in smaller batches with retry logic
+    const photosBatch = 5; // Process 5 photos at a time
+    const employeesWithPhotos: typeof employeeData = [];
+    
+    // Pre-check which employees have photos
+    for (const employee of employeeData) {
+      const photo = await getEmployeePhoto(employee.nip);
+      if (photo !== null) {
+        employeesWithPhotos.push(employee);
+      }
+    }
+    
+    console.log(`📷 Found ${employeesWithPhotos.length} employees with photos to process`);
+    
+    for (let i = 0; i < employeesWithPhotos.length; i += photosBatch) {
+      const batch = employeesWithPhotos.slice(i, i + photosBatch);
+      console.log(`📷 Processing photo batch ${Math.floor(i/photosBatch) + 1}/${Math.ceil(employeesWithPhotos.length/photosBatch)} (${batch.length} photos)...`);
       
-      if (photo) {
-        try {
-          await db.update(employeesTable)
-            .set({ foto: photo })
-            .where(eq(employeesTable.nip, employee.nip));
-          photosAdded++;
+      for (const employee of batch) {
+        const photo = await getEmployeePhoto(employee.nip);
+        
+        if (photo) {
+          let success = false;
+          let attempts = 0;
           
-          if (photosAdded % 10 === 0) {
-            console.log(`📷 Added ${photosAdded} photos so far...`);
+          while (!success && attempts < maxRetries) {
+            try {
+              await db.update(employeesTable)
+                .set({ foto: photo })
+                .where(eq(employeesTable.nip, employee.nip));
+              
+              photosAdded++;
+              success = true;
+              
+              if (photosAdded % 5 === 0) {
+                console.log(`📷 Successfully added ${photosAdded} photos so far...`);
+              }
+            } catch (photoError: any) {
+              attempts++;
+              console.warn(`⚠️  Attempt ${attempts}/${maxRetries} failed for ${employee.nip}: ${photoError.message}`);
+              
+              if (attempts < maxRetries) {
+                // Wait longer between retries for connection issues
+                await new Promise(resolve => setTimeout(resolve, 2000 * attempts));
+              } else {
+                console.error(`❌ Failed to add photo for ${employee.nip} after ${maxRetries} attempts`);
+              }
+            }
           }
           
-          // Small delay to prevent overwhelming the connection
-          await new Promise(resolve => setTimeout(resolve, 50));
-        } catch (photoError) {
-          console.warn(`⚠️  Failed to add photo for ${employee.nip}:`, photoError);
+          // Longer delay between each photo to prevent connection exhaustion
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
+      }
+      
+      // Longer delay between batches
+      if (i + photosBatch < employeesWithPhotos.length) {
+        console.log('⏳ Waiting before next batch...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
     
